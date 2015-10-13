@@ -1,0 +1,60 @@
+Opnd_1: 9999
+Oper  : +
+Opnd_2: 10001
+Result: 20000
+
+Opnd_1: 999
+Oper  : +
+Opnd_2: -1111
+Result: -112
+
+Opnd_1: 1111
+Oper  : +
+Opnd_2: -999
+Result: 112
+
+Opnd_1: -1111
+Oper  : +
+Opnd_2: 999
+Result: -112
+
+Opnd_1: -999
+Oper  : +
+Opnd_2: 1111
+Result: 112
+
+Opnd_1: -999
+Oper  : +
+Opnd_2: -1
+Result: -1000
+
+Opnd_1: 9999
+Oper  : -
+Opnd_2: 9900
+Result: 99
+
+Opnd_1: 9900
+Oper  : -
+Opnd_2: 9999
+Result: -99
+
+Opnd_1: 1111
+Oper  : -
+Opnd_2: -999
+Result: 2110
+
+Opnd_1: -1111
+Oper  : -
+Opnd_2: 999
+Result: -2110
+
+Opnd_1: -999
+Oper  : -
+Opnd_2: -1111
+Result: 112
+
+Opnd_1: -1111
+Oper  : -
+Opnd_2: -999
+Result: -112
+

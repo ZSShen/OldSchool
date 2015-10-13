@@ -17,6 +17,7 @@ class BigInt {
 
     Number* addNumber(const Number*, const Number*) const;
     Number* subNumber(const Number*, const Number*) const;
+    Number* mulNumber(const Number*, const Number*) const;
     bool compareLarger(const Number*, const Number*) const;
 
   public:
@@ -43,7 +44,7 @@ BigInt::Number* BigInt::addNumber(const Number* num_src, const Number* num_dst) 
     char* array_dst = num_dst->m_array;
 
     int len_res = (idx_src > idx_dst)? (idx_src + 1) : (idx_dst + 1);
-    char* array_res = new char[len_res];
+    char array_res[len_res];
     memset(array_res, 0, sizeof(char) * (len_res));
 
     // Add the source and destination arrays until reaching their boundaries.
@@ -92,7 +93,6 @@ BigInt::Number* BigInt::addNumber(const Number* num_src, const Number* num_dst) 
     num_res->m_array = new char[num_res->m_len];
     memmove(num_res->m_array, array_res + idx_res, sizeof(char) * num_res->m_len);
 
-    delete[] array_res;
     return num_res;
 }
 
@@ -105,7 +105,7 @@ BigInt::Number* BigInt::subNumber(const Number* num_src, const Number* num_dst) 
 
     int len_res = num_src->m_len;
     int idx_res = len_res - 1;
-    char* array_res = new char[len_res];
+    char array_res[len_res];
     memset(array_res, 0, sizeof(char) * len_res);
 
     while (idx_dst >= 0)
@@ -137,9 +137,10 @@ BigInt::Number* BigInt::subNumber(const Number* num_src, const Number* num_dst) 
     num_res->m_array = new char[num_res->m_len];
     memmove(num_res->m_array, array_res + idx_res, sizeof(char) * num_res->m_len);
 
-    delete[] array_res;
     return num_res;
 }
+
+
 
 bool BigInt::compareLarger(const Number* num_src, const Number* num_dst) const
 {
@@ -318,20 +319,42 @@ int main()
     string str_op1, str_op2;
     char oper;
 
+
+#ifdef IN_HOUSE
+    while (cin >> str_op1) {
+        cin >> oper >> str_op2;
+        BigInt bigint_op1(str_op1.c_str());
+        BigInt bigint_op2(str_op2.c_str());
+
+        cout << "Opnd_1: " << bigint_op1 << endl;
+        cout << "Oper  : " << oper << endl;
+        cout << "Opnd_2: " << bigint_op2 << endl;
+        switch (oper) {
+            case '+':
+                cout << "Result: " << bigint_op1 + bigint_op2 << endl << endl;
+                break;
+            case '-':
+                cout << "Result: " << bigint_op1 - bigint_op2 << endl << endl;
+                break;
+        }
+    }
+
+#else
     cin >> str_op1 >> oper >> str_op2;
     BigInt bigint_op1(str_op1.c_str());
-    BigInt biging_op2(str_op2.c_str());
+    BigInt bigint_op2(str_op2.c_str());
 
     cout << bigint_op1 << endl;
-    cout << biging_op2 << endl;
+    cout << bigint_op2 << endl;
     switch (oper) {
         case '+':
-            cout << bigint_op1 + biging_op2 << endl;
+            cout << bigint_op1 + bigint_op2 << endl;
             break;
         case '-':
-            cout << bigint_op1 - biging_op2 << endl;
+            cout << bigint_op1 - bigint_op2 << endl;
             break;
     }
+#endif
 
     return 0;
 }
