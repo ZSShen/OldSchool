@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 
 using namespace std;
 
@@ -15,9 +16,9 @@ class BigInt {
     Number* m_num;
     char* m_rep;
 
-    Number* addNumber(const Number*, const Number*) const;
-    Number* subNumber(const Number*, const Number*) const;
-    Number* mulNumber(const Number*, const Number*) const;
+    void addNumber(const Number*, const Number*, Number*) const;
+    void subNumber(const Number*, const Number*, Number*) const;
+    void mulNumber(const Number*, const Number*, Number*) const;
     bool compareLarger(const Number*, const Number*) const;
 
   public:
@@ -36,7 +37,8 @@ class BigInt {
 /*-----------------------------------------------------------------------------*
  *                  Implementation for the internal operators                  *
  *-----------------------------------------------------------------------------*/
-BigInt::Number* BigInt::addNumber(const Number* num_src, const Number* num_dst) const
+void BigInt::addNumber(const Number* num_src, const Number* num_dst,
+                       Number* num_res) const
 {
     int idx_src = num_src->m_len;
     int idx_dst = num_dst->m_len;
@@ -85,18 +87,16 @@ BigInt::Number* BigInt::addNumber(const Number* num_src, const Number* num_dst) 
         }
     }
 
-    Number* num_res = new Number;
     idx_res = 0;
     while ((idx_res < len_res - 1) && (array_res[idx_res] == 0))
         ++idx_res;
     num_res->m_len = len_res - idx_res;
     num_res->m_array = new char[num_res->m_len];
     memmove(num_res->m_array, array_res + idx_res, sizeof(char) * num_res->m_len);
-
-    return num_res;
 }
 
-BigInt::Number* BigInt::subNumber(const Number* num_src, const Number* num_dst) const
+void BigInt::subNumber(const Number* num_src, const Number* num_dst,
+                       Number* num_res) const
 {
     int idx_src = num_src->m_len - 1;
     int idx_dst = num_dst->m_len - 1;
@@ -129,18 +129,44 @@ BigInt::Number* BigInt::subNumber(const Number* num_src, const Number* num_dst) 
         --idx_res;
     }
 
-    Number* num_res = new Number;
     idx_res = 0;
     while ((idx_res < len_res - 1) && (array_res[idx_res] == 0))
         ++idx_res;
     num_res->m_len = len_res - idx_res;
     num_res->m_array = new char[num_res->m_len];
     memmove(num_res->m_array, array_res + idx_res, sizeof(char) * num_res->m_len);
-
-    return num_res;
 }
 
+void BigInt::mulNumber(const Number* num_src, const Number* num_dst,
+                       Number* num_res) const
+{
+    int len_src = num_src->m_len;
+    int len_dst = num_dst->m_len;
+    char* array_src = num_src->m_array;
+    char* array_dst = num_dst->m_array;
 
+    int len_res = (len_src > len_dst)? (len_src << 1) : (len_dst << 1);
+    char array_res[len_res];
+    memset(array_res, 0, sizeof(char) * len_res);
+
+    for (int i = len_src - 1, k = 1 ; i >= 0 ; --i, ++k) {
+        int idx_res = len_res - k;
+        for (int j = len_dst - 1 ; j >= 0 ; --j) {
+            array_res[idx_res] += array_src[i] * array_dst[j];
+            div_t result = div(array_res[idx_res], 10);
+            array_res[idx_res] = result.rem;
+            array_res[idx_res - 1] += result.quot;
+            --idx_res;
+        }
+    }
+
+    int idx_res = 0;
+    while ((idx_res < len_res - 1) && (array_res[idx_res] == 0))
+        ++idx_res;
+    num_res->m_len = len_res - idx_res;
+    num_res->m_array = new char[num_res->m_len];
+    memmove(num_res->m_array, array_res + idx_res, sizeof(char) * num_res->m_len);
+}
 
 bool BigInt::compareLarger(const Number* num_src, const Number* num_dst) const
 {
@@ -181,11 +207,18 @@ BigInt::BigInt(const char* str_num)
         m_sign = true;
 
         // Prepare the public representation.
-        m_rep = new char[m_num->m_len + 2];
-        m_rep[0] = '-';
-        for (i = 1 ; i <= m_num->m_len ; ++i)
-            m_rep[i] = m_num->m_array[i - 1] + '0';
-        m_rep[i] = 0;
+        if ((m_num->m_len == 1) && (m_num->m_array[0] == 0)) {
+            m_sign = false;
+            m_rep = new char[2];
+            m_rep[0] = '0';
+            m_rep[1] = 0;
+        } else {
+            m_rep = new char[m_num->m_len + 2];
+            m_rep[0] = '-';
+            for (i = 1 ; i <= m_num->m_len ; ++i)
+                m_rep[i] = m_num->m_array[i - 1] + '0';
+            m_rep[i] = 0;
+        }
     } else {
         int i = 0;
         while ((i < len - 1) && (str_num[i] == '0')) {
@@ -210,11 +243,18 @@ BigInt::BigInt(bool sign, Number* num)
 {
     int len = m_num->m_len;
     if (m_sign) {
-        m_rep = new char[len + 2];
-        m_rep[0] = '-';
-        for (int i = 0 ; i < len ; ++i)
-            m_rep[i + 1] = m_num->m_array[i] + '0';
-        m_rep[len + 1] = 0;
+        if ((len == 1) && (num->m_array[0] == 0)) {
+            m_sign = false;
+            m_rep = new char[2];
+            m_rep[0] = '0';
+            m_rep[1] = 0;
+        } else {
+            m_rep = new char[len + 2];
+            m_rep[0] = '-';
+            for (int i = 0 ; i < len ; ++i)
+                m_rep[i + 1] = m_num->m_array[i] + '0';
+            m_rep[len + 1] = 0;
+        }
     } else {
         m_rep = new char[len + 1];
         for (int i = 0 ; i < len ; ++i)
@@ -236,72 +276,87 @@ BigInt::~BigInt()
  *-----------------------------------------------------------------------------*/
 BigInt BigInt::operator+(const BigInt& rhs) const
 {
+    Number* num_res = new Number;
+
     /* lhs is positive and rhs is positive. */
     if (!m_sign && !rhs.m_sign) {
-        Number* num_res = addNumber(m_num, rhs.m_num);
+        addNumber(m_num, rhs.m_num, num_res);
         return BigInt(false, num_res);
     }
 
     /* lhs is positive and rhs is negative. */
     if (!m_sign && rhs.m_sign) {
         if (compareLarger(m_num, rhs.m_num)) {
-            Number* num_res = subNumber(m_num, rhs.m_num);
+            subNumber(m_num, rhs.m_num, num_res);
             return BigInt(false, num_res);
         }
-        Number* num_res = subNumber(rhs.m_num, m_num);
+        subNumber(rhs.m_num, m_num, num_res);
         return BigInt(true, num_res);
     }
 
     /* lhs is negative and rhs is positive. */
     if (m_sign && !rhs.m_sign) {
         if (compareLarger(m_num, rhs.m_num)) {
-            Number* num_res = subNumber(m_num, rhs.m_num);
+            subNumber(m_num, rhs.m_num, num_res);
             return BigInt(true, num_res);
         }
-        Number* num_res = subNumber(rhs.m_num, m_num);
+        subNumber(rhs.m_num, m_num, num_res);
         return BigInt(false, num_res);
     }
 
     /* lhs is negative and rhs is positive. */
-    Number* num_res = addNumber(m_num, rhs.m_num);
+    addNumber(m_num, rhs.m_num, num_res);
     return BigInt(true, num_res);
 }
 
 BigInt BigInt::operator-(const BigInt& rhs) const
 {
+    Number* num_res = new Number;
+
     /* lhs is positive and rhs is positive. */
     if (!m_sign && !rhs.m_sign) {
         if (compareLarger(m_num, rhs.m_num)) {
-            Number* num_res = subNumber(m_num, rhs.m_num);
+            subNumber(m_num, rhs.m_num, num_res);
             return BigInt(false, num_res);
         }
-        Number* num_res = subNumber(rhs.m_num, m_num);
+        subNumber(rhs.m_num, m_num, num_res);
         return BigInt(true, num_res);
     }
 
     /* lhs is positive and rhs is negative. */
     if (!m_sign && rhs.m_sign) {
-        Number* num_res = addNumber(m_num, rhs.m_num);
+        addNumber(m_num, rhs.m_num, num_res);
         return BigInt(false, num_res);
     }
 
     /* lhs is negative and rhs is positive. */
     if (m_sign && !rhs.m_sign) {
-        Number* num_res = addNumber(m_num, rhs.m_num);
+        addNumber(m_num, rhs.m_num, num_res);
         return BigInt(true, num_res);
     }
 
     /* lhs is negative and rhs is negative. */
     if (compareLarger(m_num, rhs.m_num)) {
-        Number* num_res = subNumber(m_num, rhs.m_num);
+        subNumber(m_num, rhs.m_num, num_res);
         return BigInt(true, num_res);
     }
-    Number* num_res = subNumber(rhs.m_num, m_num);
+    subNumber(rhs.m_num, m_num, num_res);
     return BigInt(false, num_res);
 }
 
 BigInt BigInt::operator*(const BigInt& rhs) const
-{}
+{
+    Number* num_res = new Number;
+
+    /* lhs and rhs have the same sign. */
+    if (m_sign == rhs.m_sign) {
+        mulNumber(m_num, rhs.m_num, num_res);
+        return BigInt(false, num_res);
+    }
+
+    mulNumber(m_num, rhs.m_num, num_res);
+    return BigInt(true, num_res);
+}
 
 BigInt BigInt::operator/(const BigInt& rhs) const
 {}
@@ -336,6 +391,9 @@ int main()
             case '-':
                 cout << "Result: " << bigint_op1 - bigint_op2 << endl << endl;
                 break;
+            case '*':
+                cout << "Result: " << bigint_op1 * bigint_op2 << endl << endl;
+                break;
         }
     }
 
@@ -352,6 +410,9 @@ int main()
             break;
         case '-':
             cout << bigint_op1 - bigint_op2 << endl;
+            break;
+        case '*':
+            cout << bigint_op1 * bigint_op2 << endl;
             break;
     }
 #endif
