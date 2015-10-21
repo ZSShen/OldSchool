@@ -1,4 +1,5 @@
 #include <iostream>
+#include <typeinfo>
 #include <sstream>
 #include <vector>
 
@@ -109,15 +110,28 @@ class Warrior
 {
   protected:
     int id_, life_, power_;
+    Weapon *p_sword_, *p_bomb_, *p_arrow_;
 
   public:
     Warrior(int id, int life, int power)
       : id_(id),
         life_(life),
-        power_(power)
+        power_(power),
+        p_sword_(NULL),
+        p_bomb_(NULL),
+        p_arrow_(NULL)
     {}
+
     virtual ~Warrior()
-    {}
+    {
+        if (p_sword_)
+            delete p_sword_;
+        if (p_bomb_)
+            delete p_bomb_;
+        if (p_arrow_)
+            delete p_arrow_;
+    }
+
     virtual void Attack(Warrior *p_warr) = 0;
     virtual void Wound(Warrior *p_warr, int atk_point) = 0;
     virtual void FightBack(int atk_point) = 0;
@@ -126,50 +140,79 @@ class Warrior
     {
         return (life_ > 0)? true : false;
     }
+
+    void AddLifePoint(int life)
+    {
+        life_ += life;
+    }
+
+    bool HasSword()
+    {
+        return (p_sword_)? true : false;
+    }
+
+    bool HasBomb()
+    {
+        return (p_bomb_)? true : false;
+    }
+
+    bool HasArrow()
+    {
+        return (p_arrow_)? true : false;
+    }
+
+    Weapon* OfferSword()
+    {
+        Weapon* p_weapon = p_sword_;
+        p_sword_ = NULL;
+        return p_weapon;
+    }
+
+    Weapon* OfferBomb()
+    {
+        Weapon* p_weapon = p_bomb_;
+        p_bomb_ = NULL;
+        return p_weapon;
+    }
+
+    Weapon* OfferArrow()
+    {
+        Weapon* p_weapon = p_arrow_;
+        p_arrow_ = NULL;
+        return p_weapon;
+    }
 };
 
 class Dragon : public Warrior
 {
   private:
-    bool has_sword_;
     double morale_;
-    Weapon *p_weapon_;
 
   public:
     Dragon(int id, int life, int power_me, double morale, int power_arrow)
       : Warrior(id, life, power_me),
-        has_sword_(false),
-        morale_(morale),
-        p_weapon_(NULL)
+        morale_(morale)
     {
         // Take the weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
           case SWORD:
-            p_weapon_ = new Sword(static_cast<double>(power_me) * 0.2);
-            has_sword_ = true;
+            p_sword_ = new Sword(static_cast<double>(power_me) * 0.2);
             break;
           case BOMB:
-            p_weapon_ = new Bomb();
+            p_bomb_ = new Bomb();
             break;
           case ARROW:
-            p_weapon_ = new Arrow(static_cast<double>(power_arrow));
-            break;
+            p_arrow_ = new Arrow(static_cast<double>(power_arrow));
         }
-    }
-
-    ~Dragon()
-    {
-        delete p_weapon_;
     }
 
     void Attack(Warrior *p_warr)
     {
         int atk_point = power_;
-        if (has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->Wound(this, atk_point);
 
         // Prepare dragon yelling.
@@ -186,11 +229,10 @@ class Dragon : public Warrior
             return;
 
         atk_point = power_ >> 1;
-        if (has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->FightBack(atk_point);
     }
 
@@ -202,66 +244,41 @@ class Dragon : public Warrior
 
 class Ninja : public Warrior
 {
-  private:
-    bool has_sword_;
-    Weapon *p_weapon_fst_, *p_weapon_snd_;
-
   public:
     Ninja(int id, int life, int power_me, int power_arrow)
-      : Warrior(id, life, power_me),
-        has_sword_(false),
-        p_weapon_fst_(NULL),
-        p_weapon_snd_(NULL)
+      : Warrior(id, life, power_me)
     {
         // Take the first weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
           case SWORD:
-            p_weapon_fst_ = new Sword(static_cast<double>(power_me) * 0.2);
-            has_sword_ = true;
+            p_sword_ = new Sword(static_cast<double>(power_me) * 0.2);
             break;
           case BOMB:
-            p_weapon_fst_ = new Bomb();
+            p_bomb_ = new Bomb();
             break;
           case ARROW:
-            p_weapon_fst_ = new Arrow(static_cast<double>(power_arrow));
-            break;
+            p_arrow_ = new Arrow(static_cast<double>(power_arrow));
         }
-
         // Take the second weapon.
         switch ((id + 1) % TOTAL_TYPE_WEAPON) {
           case SWORD:
-            p_weapon_snd_ = new Sword(static_cast<double>(power_me) * 0.2);
-            has_sword_ = true;
+            p_sword_ = new Sword(static_cast<double>(power_me) * 0.2);
             break;
           case BOMB:
-            p_weapon_snd_ = new Bomb();
+            p_bomb_ = new Bomb();
             break;
           case ARROW:
-            p_weapon_snd_ = new Arrow(static_cast<double>(power_arrow));
-            break;
+            p_arrow_ = new Arrow(static_cast<double>(power_arrow));
         }
-    }
-
-    ~Ninja()
-    {
-        delete p_weapon_fst_;
-        delete p_weapon_snd_;
     }
 
     void Attack(Warrior *p_warr)
     {
         int atk_point = power_;
-        if (has_sword_) {
-            if (p_weapon_fst_->IsUseable()) {
-                atk_point += static_cast<int>(p_weapon_fst_->GetPower());
-                p_weapon_fst_->Age();
-            }
-            if (p_weapon_snd_->IsUseable()) {
-                atk_point += static_cast<int>(p_weapon_snd_->GetPower());
-                p_weapon_snd_->Age();
-            }
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->Wound(this, atk_point);
     }
 
@@ -279,41 +296,33 @@ class Ninja : public Warrior
 class Iceman : public Warrior
 {
   private:
-    bool has_sword_;
-    Weapon *p_weapon_;
+    int step_;
 
   public:
     Iceman(int id, int life, int power_me, int power_arrow)
       : Warrior(id, life, power_me),
-        has_sword_(false)
+        step_(0)
     {
         // Take the weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
           case SWORD:
-            p_weapon_ = new Sword(static_cast<double>(power_me) * 0.2);
+            p_sword_ = new Sword(static_cast<double>(power_me) * 0.2);
             break;
           case BOMB:
-            p_weapon_ = new Bomb();
+            p_bomb_ = new Bomb();
             break;
           case ARROW:
-            p_weapon_ = new Arrow(static_cast<double>(power_arrow));
-            break;
+            p_arrow_ = new Arrow(static_cast<double>(power_arrow));
         }
-    }
-
-    ~Iceman()
-    {
-        delete p_weapon_;
     }
 
     void Attack(Warrior *p_warr)
     {
         int atk_point = power_;
-        if (has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->Wound(this, atk_point);
     }
 
@@ -324,17 +333,28 @@ class Iceman : public Warrior
             return;
 
         atk_point = power_ >> 1;
-        if (has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->FightBack(atk_point);
     }
 
     void FightBack(int atk_point)
     {
         life_ -= atk_point;
+    }
+
+    void BeFrantic()
+    {
+        ++step_;
+        if (step_ == 2) {
+            step_ = 0;
+            life_ -= 9;
+            if (life_ <= 0)
+                life_ = 1;
+            power_ += 20;
+        }
     }
 };
 
@@ -352,7 +372,16 @@ class Lion : public Warrior
 
     void Attack(Warrior *p_warr)
     {
+        int life = life_;
         p_warr->Wound(this, power_);
+
+        // Degrade its loyalty if it cannot kill the rival.
+        if (p_warr->IsAlive())
+            loyalty_ -= degrade_;
+
+        // Transfer the life point to its rival.
+        if (life_ <= 0)
+            p_warr->AddLifePoint(life);
     }
 
     void Wound(Warrior *p_warr, int atk_point)
@@ -367,36 +396,39 @@ class Lion : public Warrior
     {
         life_ -= atk_point;
     }
+
+    bool IsLoyal()
+    {
+        return (loyalty_ > 0)? true : false;
+    }
 };
 
 class Wolf : public Warrior
 {
-  private:
-    bool has_sword_;
-    Weapon *p_weapon_;
-
   public:
     Wolf(int id, int life, int power)
-      : Warrior(id, life, power),
-        has_sword_(false),
-        p_weapon_(NULL)
+      : Warrior(id, life, power)
     {}
-
-    ~Wolf()
-    {
-        if (p_weapon_)
-            delete p_weapon_;
-    }
 
     void Attack(Warrior *p_warr)
     {
         int atk_point = power_;
-        if (p_weapon_ && has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->Wound(this, atk_point);
+
+        if (p_warr->IsAlive())
+            return;
+
+        // If its rival is dead, grab the rival's weapon.
+        if (!p_sword_ && p_warr->HasSword())
+            p_sword_ = p_warr->OfferSword();
+        if (!p_bomb_ && p_warr->HasBomb())
+            p_bomb_ = p_warr->OfferBomb();
+        if (!p_arrow_ && p_warr->HasArrow())
+            p_arrow_ = p_warr->OfferArrow();
     }
 
     void Wound(Warrior *p_warr, int atk_point)
@@ -406,11 +438,10 @@ class Wolf : public Warrior
             return;
 
         atk_point = power_ >> 1;
-        if (p_weapon_ && has_sword_ && p_weapon_->IsUseable()) {
-            atk_point += static_cast<int>(p_weapon_->GetPower());
-            p_weapon_->Age();
+        if (p_sword_ && p_sword_->IsUseable()) {
+            atk_point += static_cast<int>(p_sword_->GetPower());
+            p_sword_->Age();
         }
-
         p_warr->FightBack(atk_point);
     }
 
