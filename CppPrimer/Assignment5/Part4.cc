@@ -1,10 +1,17 @@
 #include <iostream>
+#include <iomanip>
 #include <typeinfo>
 #include <sstream>
 #include <vector>
+#include <queue>
+#include <cstdio>
 
 using namespace std;
 
+
+const int SIZE_BLAH_BUF = 512;
+const char* TROOP_RED = "red";
+const char* TROOP_BLUE = "blue";
 
 enum TYPE_WEAPON
 {
@@ -29,6 +36,7 @@ enum FLAG {
     RED
 };
 
+
 /*-----------------------------------------------------------------------------*
  *                              Weapon Definition                              *
  *-----------------------------------------------------------------------------*/
@@ -42,6 +50,9 @@ class Weapon
     Weapon(bool useable, double power)
       : useable_(useable),
         power_(power)
+    {}
+
+    virtual ~Weapon()
     {}
 
     virtual void Age() = 0;
@@ -109,17 +120,20 @@ class Arrow : public Weapon
 class Warrior
 {
   protected:
-    int id_, life_, power_;
+    int id_, life_, power_, step_;
     Weapon *p_sword_, *p_bomb_, *p_arrow_;
+    string race_;
 
   public:
-    Warrior(int id, int life, int power)
+    Warrior(const string& race, int id, int life, int power)
       : id_(id),
         life_(life),
         power_(power),
+        step_(0),
         p_sword_(NULL),
         p_bomb_(NULL),
-        p_arrow_(NULL)
+        p_arrow_(NULL),
+        race_(race)
     {}
 
     virtual ~Warrior()
@@ -136,14 +150,39 @@ class Warrior
     virtual void Wound(Warrior *p_warr, int atk_point) = 0;
     virtual void FightBack(int atk_point) = 0;
 
+    int GetId()
+    {
+        return id_;
+    }
+
+    int GetLifePoint()
+    {
+        return life_;
+    }
+
+    int GetAttackPower()
+    {
+        return power_;
+    }
+
+    void WalkAhead()
+    {
+        ++step_;
+    }
+
+    int GetWalkStep()
+    {
+        return step_;
+    }
+
+    const string& GetRace()
+    {
+        return race_;
+    }
+
     bool IsAlive()
     {
         return (life_ > 0)? true : false;
-    }
-
-    void AddLifePoint(int life)
-    {
-        life_ += life;
     }
 
     bool HasSword()
@@ -181,6 +220,21 @@ class Warrior
         p_arrow_ = NULL;
         return p_weapon;
     }
+
+    void AddLifePoint(int life)
+    {
+        life_ += life;
+    }
+
+    void BeShot(int atk_point)
+    {
+        life_ -= atk_point;
+    }
+
+    void BeBombed()
+    {
+        life_ = 0;
+    }
 };
 
 class Dragon : public Warrior
@@ -190,7 +244,7 @@ class Dragon : public Warrior
 
   public:
     Dragon(int id, int life, int power_me, double morale, int power_arrow)
-      : Warrior(id, life, power_me),
+      : Warrior("dragon", id, life, power_me),
         morale_(morale)
     {
         // Take the weapon.
@@ -240,13 +294,18 @@ class Dragon : public Warrior
     {
         life_ -= atk_point;
     }
+
+    double GetMorale()
+    {
+        return morale_;
+    }
 };
 
 class Ninja : public Warrior
 {
   public:
     Ninja(int id, int life, int power_me, int power_arrow)
-      : Warrior(id, life, power_me)
+      : Warrior("ninja", id, life, power_me)
     {
         // Take the first weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
@@ -300,7 +359,7 @@ class Iceman : public Warrior
 
   public:
     Iceman(int id, int life, int power_me, int power_arrow)
-      : Warrior(id, life, power_me),
+      : Warrior("iceman", id, life, power_me),
         step_(0)
     {
         // Take the weapon.
@@ -365,7 +424,7 @@ class Lion : public Warrior
 
   public:
     Lion(int id, int life, int power, int loyalty, int degrade)
-      : Warrior(id, life, power),
+      : Warrior("lion", id, life, power),
         loyalty_(loyalty),
         degrade_(degrade)
     {}
@@ -401,13 +460,18 @@ class Lion : public Warrior
     {
         return (loyalty_ > 0)? true : false;
     }
+
+    int GetLoyalty()
+    {
+        return loyalty_;
+    }
 };
 
 class Wolf : public Warrior
 {
   public:
     Wolf(int id, int life, int power)
-      : Warrior(id, life, power)
+      : Warrior("wolf", id, life, power)
     {}
 
     void Attack(Warrior *p_warr)
@@ -455,21 +519,84 @@ class Wolf : public Warrior
 /*-----------------------------------------------------------------------------*
  *                               City Definition                               *
  *-----------------------------------------------------------------------------*/
-class City
+class Place
 {
   private:
     char flag_;
     int life_;
-    vector<Warrior*> vec_red_;
-    vector<Warrior*> vec_blue_;
+    queue<Warrior*> q_red_;
+    queue<Warrior*> q_blue_;
 
   public:
-    City()
-      : flag_(NONE),
-        life_(0),
-        vec_red_(),
-        vec_blue_()
+    enum {FLAG_NONE, FLAG_RED, FLAG_BLUE};
+
+    Place(char flag = FLAG_NONE, int life = 0)
+      : flag_(flag),
+        life_(life),
+        q_red_(),
+        q_blue_()
     {}
+
+    ~Place()
+    {
+        while (!q_red_.empty()) {
+            Warrior* p_warr = q_red_.front();
+            delete p_warr;
+            q_red_.pop();
+        }
+        while (!q_blue_.empty()) {
+            Warrior* p_warr = q_blue_.front();
+            delete p_warr;
+            q_blue_.pop();
+        }
+    }
+
+    void ProduceLifePoint()
+    {
+        life_ += 10;
+    }
+
+    void SetRedWarrior(Warrior* p_warr)
+    {
+        q_red_.push(p_warr);
+    }
+
+    void SetBlueWarrior(Warrior* p_warr)
+    {
+        q_blue_.push(p_warr);
+    }
+
+    Warrior* GetRedWarrior()
+    {
+        return (q_red_.empty())? NULL : q_red_.front();
+    }
+
+    Warrior* GetBlueWarrior()
+    {
+        return (q_blue_.empty())? NULL : q_blue_.front();
+    }
+
+    void PopRedWarrior()
+    {
+        if (!q_red_.empty())
+            q_red_.pop();
+    }
+
+    void PopBlueWarrior()
+    {
+        if (!q_blue_.empty())
+            q_blue_.pop();
+    }
+
+    int CountRedWarrior()
+    {
+        return q_red_.size();
+    }
+
+    int CountBlueWarrior()
+    {
+        return q_blue_.size();
+    }
 };
 
 
@@ -484,113 +611,137 @@ typedef struct Config_
 } Config;
 
 
-class HeadQuarterRed
+class HeadQuarter
 {
-  private:
+  protected:
     int life_, turn_;
     const Config& config_;
 
+  public:
+    HeadQuarter(int life, const Config& config)
+      : life_(life),
+        turn_(1),
+        config_(config)
+    {}
+
+    virtual ~HeadQuarter()
+    {}
+
+    virtual Warrior* ProduceWarrior() = 0;
+
+    void HarvestLifePoint(int life)
+    {
+        life_ += life;
+    }
+};
+
+class HeadQuarterRed : public HeadQuarter
+{
   public:
     HeadQuarterRed(int life, const Config& config)
-      : life_(life),
-        turn_(1),
-        config_(config)
+      : HeadQuarter(life, config)
     {}
 
-    Warrior* ProduceWarrior()
-    {
-        // Early return if there is no enough life to produce new warrior.
-        if ((life_ < config_.life_dragon) || (life_ < config_.life_ninja) ||
-            (life_ < config_.life_iceman) || (life_ < config_.life_lion) ||
-            (life_ < config_.life_wolf))
-            return NULL;
-
-        Warrior *p_warr;
-        switch (turn_ % TOTAL_TYPE_WARRIOR) {
-          case 1:
-            life_ -= config_.life_iceman;
-            p_warr = new Iceman(turn_, config_.life_iceman, config_.power_iceman,
-                                config_.power_arrow);
-            break;
-          case 2:
-            life_ -= config_.life_lion;
-            p_warr = new Lion(turn_, config_.life_lion, config_.power_lion,
-                              life_, config_.loyalty);
-            break;
-          case 3:
-            life_ -= config_.life_wolf;
-            p_warr = new Wolf(turn_, config_.life_wolf, config_.power_wolf);
-            break;
-          case 4:
-            life_ -= config_.life_ninja;
-            p_warr = new Ninja(turn_, config_.life_ninja, config_.power_ninja,
-                               config_.power_arrow);
-            break;
-          case 5:
-            life_ -= config_.life_dragon;
-            p_warr = new Dragon(turn_, config_.life_dragon, config_.power_dragon,
-                                static_cast<double>(life_) / config_.life_dragon,
-                                config_.power_arrow);
-        }
-
-        ++turn_;
-        return p_warr;
-    }
+    Warrior* ProduceWarrior();
 };
 
-class HeadQuarterBlue
+class HeadQuarterBlue : public HeadQuarter
 {
-  private:
-    int life_, turn_;
-    const Config& config_;
-
   public:
     HeadQuarterBlue(int life, const Config& config)
-      : life_(life),
-        turn_(1),
-        config_(config)
+      : HeadQuarter(life, config)
     {}
 
-    Warrior* ProduceWarrior()
-    {
-        // Early return if there is no enough life to produce new warrior.
-        if ((life_ < config_.life_dragon) || (life_ < config_.life_ninja) ||
-            (life_ < config_.life_iceman) || (life_ < config_.life_lion) ||
-            (life_ < config_.life_wolf))
-            return NULL;
-
-        Warrior *p_warr;
-        switch (turn_ % TOTAL_TYPE_WARRIOR) {
-          case 1:
-            life_ -= config_.life_lion;
-            p_warr = new Lion(turn_, config_.life_lion, config_.power_lion,
-                              life_, config_.loyalty);
-            break;
-          case 2:
-            life_ -= config_.life_dragon;
-            p_warr = new Dragon(turn_, config_.life_dragon, config_.power_dragon,
-                                static_cast<double>(life_) / config_.life_dragon,
-                                config_.power_arrow);
-            break;
-          case 3:
-            life_ -= config_.life_ninja;
-            p_warr = new Ninja(turn_, config_.life_ninja, config_.power_ninja,
-                               config_.power_arrow);
-            break;
-          case 4:
-            life_ -= config_.life_iceman;
-            p_warr = new Iceman(turn_, config_.life_iceman, config_.power_iceman,
-                                config_.power_arrow);
-            break;
-          case 5:
-            life_ -= config_.life_wolf;
-            p_warr = new Wolf(turn_, config_.life_wolf, config_.power_wolf);
-        }
-
-        ++turn_;
-        return p_warr;
-    }
+    Warrior* ProduceWarrior();
 };
+
+Warrior* HeadQuarterRed::ProduceWarrior()
+{
+    Warrior *p_warr = NULL;
+    switch (turn_ % TOTAL_TYPE_WARRIOR) {
+      case 1:
+        if (life_ < config_.life_iceman)
+            break;
+        life_ -= config_.life_iceman;
+        p_warr = new Iceman(turn_, config_.life_iceman, config_.power_iceman,
+                            config_.power_arrow);
+        break;
+      case 2:
+        if (life_ < config_.life_lion)
+            break;
+        life_ -= config_.life_lion;
+        p_warr = new Lion(turn_, config_.life_lion, config_.power_lion,
+                          life_, config_.loyalty);
+        break;
+      case 3:
+        if (life_ < config_.life_wolf)
+            break;
+        life_ -= config_.life_wolf;
+        p_warr = new Wolf(turn_, config_.life_wolf, config_.power_wolf);
+        break;
+      case 4:
+        if (life_ < config_.life_ninja)
+            break;
+        life_ -= config_.life_ninja;
+        p_warr = new Ninja(turn_, config_.life_ninja, config_.power_ninja,
+                           config_.power_arrow);
+        break;
+      case 5:
+        if (life_ < config_.life_dragon)
+            break;
+        life_ -= config_.life_dragon;
+        p_warr = new Dragon(turn_, config_.life_dragon, config_.power_dragon,
+                            static_cast<double>(life_) / config_.life_dragon,
+                            config_.power_arrow);
+    }
+
+    ++turn_;
+    return p_warr;
+}
+
+Warrior* HeadQuarterBlue::ProduceWarrior()
+{
+    Warrior *p_warr = NULL;
+    switch (turn_ % TOTAL_TYPE_WARRIOR) {
+      case 1:
+        if (life_ < config_.life_lion)
+            break;
+        life_ -= config_.life_lion;
+        p_warr = new Lion(turn_, config_.life_lion, config_.power_lion,
+                          life_, config_.loyalty);
+        break;
+      case 2:
+        if (life_ < config_.life_dragon)
+            break;
+        life_ -= config_.life_dragon;
+        p_warr = new Dragon(turn_, config_.life_dragon, config_.power_dragon,
+                            static_cast<double>(life_) / config_.life_dragon,
+                            config_.power_arrow);
+        break;
+      case 3:
+        if (life_ < config_.life_ninja)
+            break;
+        life_ -= config_.life_ninja;
+        p_warr = new Ninja(turn_, config_.life_ninja, config_.power_ninja,
+                           config_.power_arrow);
+        break;
+      case 4:
+        if (life_ < config_.life_iceman)
+            break;
+        life_ -= config_.life_iceman;
+        p_warr = new Iceman(turn_, config_.life_iceman, config_.power_iceman,
+                            config_.power_arrow);
+        break;
+      case 5:
+        if (life_ < config_.life_wolf)
+            break;
+        life_ -= config_.life_wolf;
+        p_warr = new Wolf(turn_, config_.life_wolf, config_.power_wolf);
+    }
+
+    ++turn_;
+    return p_warr;
+}
 
 
 /*-----------------------------------------------------------------------------*
@@ -599,19 +750,220 @@ class HeadQuarterBlue
 class GameMaster
 {
   private:
+    int POS_REDHQ, POS_BLUEHQ;
     const Config& config_;
-    HeadQuarterRed hq_red_;
-    HeadQuarterBlue hq_blue_;
-    vector<City> vec_city_;
+    HeadQuarter *p_redhq_, *p_bluehq_;
+    vector<Place> vec_place_;
+
+    void ProduceWarrior(int);
+    void ProduceWarriorPostLog(int, const char*, Warrior*);
+
+    void FleeLion(int);
+    void FleeLionPostLog(int, const char*, Lion*);
+
+    void MarchWarrior(int);
+    void MarchWarriorPostLogToCity(int, const char*, Warrior*, int);
+    void MarchWarriorPostLogToHQ(int, const char*, Warrior*, const char*);
+    void MarchWarriorPostLogTakeHQ(int, const char*);
+
+    bool CheckTermination();
 
   public:
     GameMaster(const Config& config)
-      : config_(config),
-        hq_red_(config.life_hq, config),
-        hq_blue_(config.life_hq, config),
-        vec_city_(config.num_city + 2)
+      : POS_REDHQ(0),
+        POS_BLUEHQ(config.num_city + 1),
+        config_(config),
+        p_redhq_(new HeadQuarterRed(config.life_hq, config)),
+        p_bluehq_(new HeadQuarterBlue(config.life_hq, config)),
+        vec_place_(config.num_city + 2)
     {}
+
+    ~GameMaster()
+    {
+        if (p_redhq_)
+            delete p_redhq_;
+        if (p_bluehq_)
+            delete p_bluehq_;
+    }
+
+    void Run();
 };
+
+void GameMaster::Run()
+{
+    int hour = 0;
+    int total = config_.minute / 60;
+    while (hour < total) {
+        if (CheckTermination())
+            break;
+
+        // At h:00, HQs produce warriors.
+        ProduceWarrior(hour);
+
+        // At h:05, the lions with loyalty less than or equal to 0 should flee.
+        FleeLion(hour);
+
+        // At h:10, each warrior marches one step further to the enemy HQ.
+        MarchWarrior(hour);
+
+        ++hour;
+    }
+}
+
+void GameMaster::ProduceWarrior(int hour)
+{
+    Warrior* p_warr = p_redhq_->ProduceWarrior();
+    if (p_warr) {
+        vec_place_[POS_REDHQ].SetRedWarrior(p_warr);
+        ProduceWarriorPostLog(hour, TROOP_RED, p_warr);
+    }
+
+    p_warr = p_bluehq_->ProduceWarrior();
+    if (p_warr) {
+        vec_place_[POS_BLUEHQ].SetBlueWarrior(p_warr);
+        ProduceWarriorPostLog(hour, TROOP_BLUE, p_warr);
+    }
+}
+
+void GameMaster::ProduceWarriorPostLog(int hour, const char* troop,
+                                       Warrior* p_warr)
+{
+    char msg[SIZE_BLAH_BUF];
+    int ofst = sprintf(msg, "%03d:00 %s %s %d born\n", hour, troop,
+                       p_warr->GetRace().c_str(), p_warr->GetId());
+
+    if (typeid(*p_warr) == typeid(Lion))
+        sprintf(msg + ofst, "Its loyalty is %d\n",
+                static_cast<Lion*>(p_warr)->GetLoyalty());
+    else if (typeid(*p_warr) == typeid(Dragon))
+        sprintf(msg + ofst, "Its morale is %.2lf\n",
+                static_cast<Dragon*>(p_warr)->GetMorale());
+
+    cout << msg;
+}
+
+void GameMaster::FleeLion(int hour)
+{
+    // Handle the lion standing at red HQ.
+    Warrior* p_warr = vec_place_[POS_REDHQ].GetRedWarrior();
+    if (p_warr && typeid(*p_warr) == typeid(Lion)) {
+        Lion* p_lion = static_cast<Lion*>(p_warr);
+        if (!p_lion->IsLoyal()) {
+            FleeLionPostLog(hour, TROOP_RED, p_lion);
+            delete p_warr;
+            vec_place_[POS_REDHQ].PopRedWarrior();
+        }
+    }
+
+    // Handle the lions standing at each city.
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Place& city = vec_place_[i];
+
+        p_warr = city.GetRedWarrior();
+        if (p_warr && typeid(*p_warr) == typeid(Lion)) {
+            Lion* p_lion = static_cast<Lion*>(p_warr);
+            if (!p_lion->IsLoyal()) {
+                FleeLionPostLog(hour, TROOP_RED, p_lion);
+                delete p_warr;
+                vec_place_[i].PopRedWarrior();
+            }
+        }
+
+        p_warr = city.GetBlueWarrior();
+        if (p_warr && typeid(*p_warr) == typeid(Lion)) {
+            Lion* p_lion = static_cast<Lion*>(p_warr);
+            if (!p_lion->IsLoyal()) {
+                FleeLionPostLog(hour, TROOP_BLUE, p_lion);
+                delete p_warr;
+                vec_place_[i].PopBlueWarrior();
+            }
+        }
+    }
+
+    // Handle the lion standing at blue HQ.
+    p_warr = vec_place_[POS_BLUEHQ].GetBlueWarrior();
+    if (p_warr && typeid(*p_warr) == typeid(Lion)) {
+        Lion* p_lion = static_cast<Lion*>(p_warr);
+        if (!p_lion->IsLoyal()) {
+            FleeLionPostLog(hour, TROOP_RED, p_lion);
+            delete p_warr;
+            vec_place_[POS_BLUEHQ].PopBlueWarrior();
+        }
+    }
+}
+
+void GameMaster::FleeLionPostLog(int hour, const char* troop, Lion* p_lion)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:05 %s lion %d ran away\n", hour, troop, p_lion->GetId());
+    cout << msg;
+}
+
+void GameMaster::MarchWarrior(int hour)
+{
+    // Handle the warrior in blue troop which is ready to march for red HQ.
+    Warrior* p_warr = vec_place_[POS_REDHQ + 1].GetBlueWarrior();
+    if (p_warr && (p_warr->GetWalkStep() == hour)) {
+        p_warr->WalkAhead();
+        vec_place_[POS_REDHQ].SetBlueWarrior(p_warr);
+        vec_place_[POS_REDHQ + 1].PopBlueWarrior();
+        MarchWarriorPostLogToHQ(hour, TROOP_BLUE, p_warr, TROOP_RED);
+    }
+
+    // Handle the warriors ready to march for cities from #1 to #N.
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        p_warr = vec_place_[i - 1].GetRedWarrior();
+        if (p_warr && (p_warr->GetWalkStep() == hour)) {
+            p_warr->WalkAhead();
+            vec_place_[i].SetRedWarrior(p_warr);
+            vec_place_[i - 1].PopRedWarrior();
+            MarchWarriorPostLogToCity(hour, TROOP_RED, p_warr, i);
+        }
+
+        p_warr = vec_place_[i + 1].GetBlueWarrior();
+        if (p_warr && (p_warr->GetWalkStep() == hour)) {
+            p_warr->WalkAhead();
+            vec_place_[i].SetBlueWarrior(p_warr);
+            vec_place_[i + 1].PopBlueWarrior();
+            MarchWarriorPostLogToCity(hour, TROOP_BLUE, p_warr, i);
+        }
+    }
+
+    // Handle the warrior in red troop which is ready to march for blue HQ.
+    p_warr = vec_place_[POS_BLUEHQ - 1].GetRedWarrior();
+    if (p_warr && (p_warr->GetWalkStep() == hour)) {
+        p_warr->WalkAhead();
+        vec_place_[POS_BLUEHQ].SetRedWarrior(p_warr);
+        vec_place_[POS_BLUEHQ - 1].PopRedWarrior();
+        MarchWarriorPostLogToHQ(hour, TROOP_RED, p_warr, TROOP_BLUE);
+    }
+}
+
+void GameMaster::MarchWarriorPostLogToCity(int hour, const char* troop,
+                                           Warrior* p_warr, int idx)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:10 %s %s %d marched to city %d with %d elements and force %d\n",
+            hour, troop, p_warr->GetRace().c_str(), p_warr->GetId(),
+            idx, p_warr->GetLifePoint(), p_warr->GetAttackPower());
+    cout << msg;
+}
+
+void GameMaster::MarchWarriorPostLogToHQ(int hour, const char* troop_warr,
+                                         Warrior* p_warr, const char* troop_enemy)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:10 %s %s %d reached %s headquarter with %d elements and force %d\n",
+            hour, troop_warr, p_warr->GetRace().c_str(), p_warr->GetId(),
+            troop_enemy, p_warr->GetLifePoint(), p_warr->GetAttackPower());
+    cout << msg;
+}
+
+bool GameMaster::CheckTermination()
+{
+    return (vec_place_[POS_REDHQ].CountBlueWarrior() >= 2) ||
+           (vec_place_[POS_BLUEHQ].CountRedWarrior() >= 2);
+}
 
 
 int main()
@@ -629,6 +981,9 @@ int main()
 
         cin >> config.power_dragon >> config.power_ninja >> config.power_iceman \
             >> config.power_lion >> config.power_wolf;
+
+        GameMaster gm(config);
+        gm.Run();
     }
 
     return 0;
