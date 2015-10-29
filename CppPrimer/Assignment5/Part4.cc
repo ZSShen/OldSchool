@@ -556,6 +556,13 @@ class Place
         life_ += 10;
     }
 
+    int BeHunted()
+    {
+        int life = life_;
+        life_ = 0;
+        return life;
+    }
+
     void SetRedWarrior(Warrior* p_warr)
     {
         q_red_.push(p_warr);
@@ -629,7 +636,7 @@ class HeadQuarter
 
     virtual Warrior* ProduceWarrior() = 0;
 
-    void HarvestLifePoint(int life)
+    void IncreaseLifePoint(int life)
     {
         life_ += life;
     }
@@ -766,6 +773,10 @@ class GameMaster
     void MarchWarriorPostLogToHQ(int, const char*, Warrior*, const char*);
     void MarchWarriorPostLogTakeHQ(int, const char*);
 
+    void ProduceLifePoint();
+    void GatherLifePoint(int);
+    void GatherLifePointPostLog(int, const char*, Warrior*, int);
+
     bool CheckTermination();
 
   public:
@@ -805,6 +816,12 @@ void GameMaster::Run()
 
         // At h:10, each warrior marches one step further to the enemy HQ.
         MarchWarrior(hour);
+
+        // At h:20, each city produces 10 life points.
+        ProduceLifePoint();
+
+        // At h:30, warriors try to gather life points for their HQ.
+        GatherLifePoint(hour);
 
         ++hour;
     }
@@ -908,6 +925,8 @@ void GameMaster::MarchWarrior(int hour)
         vec_place_[POS_REDHQ].SetBlueWarrior(p_warr);
         vec_place_[POS_REDHQ + 1].PopBlueWarrior();
         MarchWarriorPostLogToHQ(hour, TROOP_BLUE, p_warr, TROOP_RED);
+        if (vec_place_[POS_REDHQ].CountBlueWarrior() == 2)
+            MarchWarriorPostLogTakeHQ(hour, TROOP_RED);
     }
 
     // Handle the warriors ready to march for cities from #1 to #N.
@@ -936,6 +955,8 @@ void GameMaster::MarchWarrior(int hour)
         vec_place_[POS_BLUEHQ].SetRedWarrior(p_warr);
         vec_place_[POS_BLUEHQ - 1].PopRedWarrior();
         MarchWarriorPostLogToHQ(hour, TROOP_RED, p_warr, TROOP_BLUE);
+        if (vec_place_[POS_BLUEHQ].CountRedWarrior() == 2)
+            MarchWarriorPostLogTakeHQ(hour, TROOP_BLUE);
     }
 }
 
@@ -956,6 +977,48 @@ void GameMaster::MarchWarriorPostLogToHQ(int hour, const char* troop_warr,
     sprintf(msg, "%03d:10 %s %s %d reached %s headquarter with %d elements and force %d\n",
             hour, troop_warr, p_warr->GetRace().c_str(), p_warr->GetId(),
             troop_enemy, p_warr->GetLifePoint(), p_warr->GetAttackPower());
+    cout << msg;
+}
+
+void GameMaster::MarchWarriorPostLogTakeHQ(int hour, const char* troop)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:10 %s headquarter was taken\n", hour, troop);
+    cout << msg;
+}
+
+void GameMaster::ProduceLifePoint()
+{
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i)
+        vec_place_[i].ProduceLifePoint();
+}
+
+void GameMaster::GatherLifePoint(int hour)
+{
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Place& city = vec_place_[i];
+        if ((city.CountRedWarrior() == 1) && (city.CountBlueWarrior() == 0)) {
+            Warrior* p_warr = city.GetRedWarrior();
+            int life = city.BeHunted();
+            p_redhq_->IncreaseLifePoint(life);
+            GatherLifePointPostLog(hour, TROOP_RED, p_warr, life);
+            continue;
+        }
+        if ((city.CountRedWarrior() == 0) && (city.CountBlueWarrior() == 1)) {
+            Warrior* p_warr = city.GetBlueWarrior();
+            int life = city.BeHunted();
+            p_bluehq_->IncreaseLifePoint(life);
+            GatherLifePointPostLog(hour, TROOP_RED, p_warr, life);
+        }
+    }
+}
+
+void GameMaster::GatherLifePointPostLog(int hour, const char* troop,
+                                        Warrior* p_warr, int life)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:30 %s %s %d earned %d elements for his headquarter\n",
+            hour, troop, p_warr->GetRace().c_str(), p_warr->GetId(), life);
     cout << msg;
 }
 
