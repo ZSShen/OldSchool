@@ -146,9 +146,18 @@ class Warrior
             delete p_arrow_;
     }
 
-    virtual void Attack(Warrior *p_warr) = 0;
-    virtual void Wound(Warrior *p_warr, int atk_point) = 0;
-    virtual void FightBack(int atk_point) = 0;
+    virtual void Attack(Warrior*) = 0;
+    virtual void Wound(Warrior*, int) = 0;
+    virtual void FightBack(int) = 0;
+
+    virtual int GetAttackPower();
+    virtual int GetFightBackPower(int);
+    virtual bool WillBeKilled(Warrior*);
+
+    virtual void WalkAhead()
+    {
+        ++step_;
+    }
 
     int GetId()
     {
@@ -160,14 +169,9 @@ class Warrior
         return life_;
     }
 
-    int GetAttackPower()
+    int GetAttackPowerNoWeapon()
     {
         return power_;
-    }
-
-    void WalkAhead()
-    {
-        ++step_;
     }
 
     int GetWalkStep()
@@ -197,7 +201,9 @@ class Warrior
 
     bool HasArrow()
     {
-        return (p_arrow_)? true : false;
+        if (!p_arrow_)
+            return false;
+        return (p_arrow_->IsUseable())? true : false;
     }
 
     Weapon* OfferSword()
@@ -226,16 +232,46 @@ class Warrior
         life_ += life;
     }
 
-    void BeShot(int atk_point)
+    int Shot()
     {
-        life_ -= atk_point;
+        p_arrow_->Age();
+        return static_cast<int>(p_arrow_->GetPower());
     }
 
-    void BeBombed()
+    void BeShot(int atk_point)
     {
-        life_ = 0;
+        life_ = (life_ > atk_point)? (life_ - atk_point) : 0;
     }
 };
+
+int Warrior::GetAttackPower()
+{
+    int atk_point = power_;
+    if (p_sword_ && p_sword_->IsUseable())
+        atk_point += static_cast<int>(p_sword_->GetPower());
+    return atk_point;
+}
+
+int Warrior::GetFightBackPower(int atk_point)
+{
+    if (atk_point >= life_)
+        return 0;
+    atk_point = power_ >> 1;
+    if (p_sword_ && p_sword_->IsUseable())
+        atk_point += static_cast<int>(p_sword_->GetPower());
+    return atk_point;
+}
+
+bool Warrior::WillBeKilled(Warrior* p_enemy)
+{
+    if (p_enemy->GetAttackPower() >= life_)
+        return true;
+    int atk_point = GetAttackPower();
+    if (p_enemy->GetFightBackPower(atk_point) >= life_)
+        return true;
+    return false;
+}
+
 
 class Dragon : public Warrior
 {
@@ -260,7 +296,7 @@ class Dragon : public Warrior
         }
     }
 
-    void Attack(Warrior *p_warr)
+    void Attack(Warrior* p_warr)
     {
         int atk_point = power_;
         if (p_sword_ && p_sword_->IsUseable()) {
@@ -276,7 +312,7 @@ class Dragon : public Warrior
             morale_ += 0.2;
     }
 
-    void Wound(Warrior *p_warr, int atk_point)
+    void Wound(Warrior* p_warr, int atk_point)
     {
         life_ -= atk_point;
         if (life_ <= 0)
@@ -350,17 +386,18 @@ class Ninja : public Warrior
     {
         life_ -= atk_point;
     }
+
+    int GetFightBackPower(int atk_point)
+    {
+        return 0;
+    }
 };
 
 class Iceman : public Warrior
 {
-  private:
-    int step_;
-
   public:
     Iceman(int id, int life, int power_me, int power_arrow)
-      : Warrior("iceman", id, life, power_me),
-        step_(0)
+      : Warrior("iceman", id, life, power_me)
     {
         // Take the weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
@@ -404,7 +441,7 @@ class Iceman : public Warrior
         life_ -= atk_point;
     }
 
-    void BeFrantic()
+    void WalkAhead()
     {
         ++step_;
         if (step_ == 2) {
@@ -454,6 +491,16 @@ class Lion : public Warrior
     void FightBack(int atk_point)
     {
         life_ -= atk_point;
+    }
+
+    int GetAttackPower()
+    {
+        return power_;
+    }
+
+    int GetFightBackPower(int atk_point)
+    {
+        return (atk_point >= life_)? 0 : (power_ >> 1);
     }
 
     bool IsLoyal()
@@ -777,6 +824,12 @@ class GameMaster
     void GatherLifePoint(int);
     void GatherLifePointPostLog(int, const char*, Warrior*, int);
 
+    void ShotEnemy(int);
+    void ShotEnemyPostLog(int, const char*, Warrior*, const char*, Warrior*);
+
+    void ExplodeEnemy(int);
+    void ExplodeEnemyPostLog(int, const char*, Warrior*, const char*, Warrior*);
+
     bool CheckTermination();
 
   public:
@@ -822,6 +875,12 @@ void GameMaster::Run()
 
         // At h:30, warriors try to gather life points for their HQ.
         GatherLifePoint(hour);
+
+        // At h:35, warriors having arrows should their rivals.
+        ShotEnemy(hour);
+
+        // At h:38, warriors having bombs try to explode rivals.
+        ExplodeEnemy(hour);
 
         ++hour;
     }
@@ -966,7 +1025,7 @@ void GameMaster::MarchWarriorPostLogToCity(int hour, const char* troop,
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:10 %s %s %d marched to city %d with %d elements and force %d\n",
             hour, troop, p_warr->GetRace().c_str(), p_warr->GetId(),
-            idx, p_warr->GetLifePoint(), p_warr->GetAttackPower());
+            idx, p_warr->GetLifePoint(), p_warr->GetAttackPowerNoWeapon());
     cout << msg;
 }
 
@@ -1019,6 +1078,99 @@ void GameMaster::GatherLifePointPostLog(int hour, const char* troop,
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:30 %s %s %d earned %d elements for his headquarter\n",
             hour, troop, p_warr->GetRace().c_str(), p_warr->GetId(), life);
+    cout << msg;
+}
+
+void GameMaster::ShotEnemy(int hour)
+{
+    if (config_.num_city == 1)
+        return;
+
+    // Handle the warrior standing at city #1.
+    Warrior* p_warr = vec_place_[POS_REDHQ + 1].GetRedWarrior();
+    Warrior* p_enemy = vec_place_[POS_REDHQ + 2].GetBlueWarrior();
+    if (p_warr && p_enemy && p_warr->HasArrow()) {
+        int atk_point = p_warr->Shot();
+        p_enemy->BeShot(atk_point);
+        ShotEnemyPostLog(hour, TROOP_RED, p_warr, TROOP_BLUE, p_enemy);
+    }
+
+    // Handle the warriors standing at cities from #2 to #(N-1).
+    for (int i = 2 ; i < POS_BLUEHQ - 1 ; ++i) {
+        p_warr = vec_place_[i].GetRedWarrior();
+        p_enemy = vec_place_[i + 1].GetBlueWarrior();
+        if (p_warr && p_enemy && p_warr->HasArrow()) {
+            int atk_point = p_warr->Shot();
+            p_enemy->BeShot(atk_point);
+            ShotEnemyPostLog(hour, TROOP_RED, p_warr, TROOP_BLUE, p_enemy);
+        }
+
+        p_warr = vec_place_[i].GetBlueWarrior();
+        p_enemy = vec_place_[i - 1].GetRedWarrior();
+        if (p_warr && p_enemy && p_warr->HasArrow()) {
+            int atk_point = p_warr->Shot();
+            p_enemy->BeShot(atk_point);
+            ShotEnemyPostLog(hour, TROOP_BLUE, p_warr, TROOP_RED, p_enemy);
+        }
+    }
+
+    // Handle the warrior standing at city #N.
+    p_warr = vec_place_[POS_BLUEHQ - 1].GetBlueWarrior();
+    p_enemy = vec_place_[POS_BLUEHQ - 2].GetRedWarrior();
+    if (p_warr && p_enemy && p_warr->HasArrow()) {
+        int atk_point = p_warr->Shot();
+        p_enemy->BeShot(atk_point);
+        ShotEnemyPostLog(hour, TROOP_BLUE, p_warr, TROOP_RED, p_enemy);
+    }
+}
+
+void GameMaster::ShotEnemyPostLog(int hour, const char* troop_warr, Warrior* p_warr,
+                                  const char* troop_enemy, Warrior* p_enemy)
+{
+    char msg[SIZE_BLAH_BUF];
+    int ofst = sprintf(msg, "%03d:35 %s %s %d shot\n", hour, troop_warr,
+                       p_warr->GetRace().c_str(), p_warr->GetId());
+    if (p_enemy->GetLifePoint() == 0)
+    sprintf(msg + ofst - 1, " and killed %s %s %d\n", troop_enemy,
+            p_enemy->GetRace().c_str(), p_enemy->GetId());
+    cout << msg;
+}
+
+void GameMaster::ExplodeEnemy(int hour)
+{
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Warrior* p_warr = vec_place_[i].GetRedWarrior();
+        Warrior* p_enemy = vec_place_[i].GetBlueWarrior();
+        if (p_warr && p_enemy && p_warr->HasBomb() &&
+            p_warr->WillBeKilled(p_enemy)) {
+            ExplodeEnemyPostLog(hour, TROOP_RED, p_warr, TROOP_BLUE, p_enemy);
+            vec_place_[i].PopRedWarrior();
+            vec_place_[i].PopBlueWarrior();
+            delete p_warr;
+            delete p_enemy;
+            continue;
+        }
+
+        p_warr = vec_place_[i].GetBlueWarrior();
+        p_enemy = vec_place_[i].GetRedWarrior();
+        if (p_warr && p_enemy && p_warr->HasBomb() &&
+            p_warr->WillBeKilled(p_enemy)) {
+            ExplodeEnemyPostLog(hour, TROOP_BLUE, p_warr, TROOP_RED, p_enemy);
+            vec_place_[i].PopBlueWarrior();
+            vec_place_[i].PopRedWarrior();
+            delete p_warr;
+            delete p_enemy;
+        }
+    }
+}
+
+void GameMaster::ExplodeEnemyPostLog(int hour, const char* troop_warr, Warrior* p_warr,
+                                     const char* troop_enemy, Warrior* p_enemy)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:38 %s %s %d used a bomb and killed %s %s %d\n", hour,
+            troop_warr, p_warr->GetRace().c_str(), p_warr->GetId(), troop_enemy,
+            p_enemy->GetRace().c_str(), p_enemy->GetId());
     cout << msg;
 }
 
