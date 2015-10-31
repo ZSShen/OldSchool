@@ -149,8 +149,8 @@ class Warrior
     }
 
     virtual void Attack(Warrior*) = 0;
-    virtual void AttackPostAction(Warrior*) = 0;
     virtual void FightBack(Warrior*) = 0;
+    virtual void ChargeAfterFight(Warrior*) = 0;
 
     virtual int GetAttackPower();
     virtual int GetFightBackPower(int);
@@ -314,7 +314,7 @@ class Dragon : public Warrior
         p_enemy->BeWound(atk_point);
     }
 
-    void AttackPostAction(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy)
     {
         if (p_enemy->IsAlive())
             morale_ -= 0.2;
@@ -378,7 +378,7 @@ class Ninja : public Warrior
         p_enemy->BeWound(atk_point);
     }
 
-    void AttackPostAction(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy)
     {}
 
     void FightBack(Warrior* p_enemy)
@@ -419,7 +419,7 @@ class Iceman : public Warrior
         p_enemy->BeWound(atk_point);
     }
 
-    void AttackPostAction(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy)
     {}
 
     void FightBack(Warrior* p_enemy)
@@ -470,10 +470,13 @@ class Lion : public Warrior
         p_enemy->BeWound(power_);
     }
 
-    void AttackPostAction(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy)
     {
         if (p_enemy->IsAlive())
             loyalty_ -= degrade_;
+
+        if (!IsAlive())
+            p_enemy->AddLifePoint(legacy_);
     }
 
     void FightBack(Warrior* p_enemy)
@@ -524,7 +527,7 @@ class Wolf : public Warrior
         p_enemy->BeWound(atk_point);
     }
 
-    void AttackPostAction(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy)
     {
         if (p_enemy->IsAlive())
             return;
@@ -853,6 +856,8 @@ class GameMaster
     void Fight(int);
     void ActiveFightLog(int, int, Warrior*, Warrior*);
     void PassiveFightLog(int, int, Warrior*, Warrior*);
+    void DieLog(int, int, Warrior*);
+    void YellLog(int, int, Warrior*);
 
     bool CheckTermination();
 
@@ -1196,11 +1201,6 @@ void GameMaster::ExplodeEnemyLog(int hour, Warrior* p_warr, Warrior* p_enemy)
 void GameMaster::Fight(int hour)
 {
     for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
-        Warrior* p_red = vec_place_[i].GetRedWarrior();
-        Warrior* p_blue = vec_place_[i].GetBlueWarrior();
-        if (!p_red || !p_blue)
-            continue;
-
         bool red_first = true;
         char flag = vec_place_[i].GetFlag();
         switch (flag) {
@@ -1214,14 +1214,75 @@ void GameMaster::Fight(int hour)
                     red_first = false;
         }
 
+        Warrior *p_active, *p_passive;
         if (red_first) {
-            p_red->Attack(p_blue);
-            p_blue->FightBack(p_red);
-            p_red->AttackPostAction(p_blue);
+            p_active = vec_place_[i].GetRedWarrior();
+            p_passive = vec_place_[i].GetBlueWarrior();
         } else {
-
+            p_active = vec_place_[i].GetBlueWarrior();
+            p_passive = vec_place_[i].GetRedWarrior();
         }
+
+        if (!p_active || !p_passive)
+            return;
+
+        if (!p_passive->IsAlive()) {
+            ActiveFightLog(hour, i, p_active, p_passive);
+            p_active->Attack(p_passive);
+            if (p_passive->IsAlive()) {
+                PassiveFightLog(hour, i, p_passive, p_active);
+                p_passive->FightBack(p_active);
+                if (!p_active->IsAlive())
+                    DieLog(hour, i, p_active);
+            } else
+                DieLog(hour, i, p_passive);
+        }
+
+        p_active->ChargeAfterFight(p_passive);
+        p_passive->ChargeAfterFight(p_active);
+
+        // Dragon yells if necessary.
+        if ((typeid(*p_active) == typeid(Dragon)) && p_active->IsAlive() &&
+            (static_cast<Dragon*>(p_active)->GetMorale() > 0.8))
+            YellLog(hour, i, p_active);
+
     }
+}
+
+void GameMaster::ActiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_enemy)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:40 %s %s %d attacked %s %s %d in city %d with %d elements"
+            "and force %d\n", hour, p_warr->GetTroop(), p_warr->GetRace().c_str(),
+            p_warr->GetId(), p_enemy->GetTroop(), p_enemy->GetRace().c_str(),
+            p_enemy->GetId(), city, p_warr->GetLifePoint(),
+            p_warr->GetAttackPowerNoWeapon());
+    cout << msg;
+}
+
+void GameMaster::PassiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_enemy)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:40 %s %s %d fought back against %s %s %d in city %d\n",
+            hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
+            p_enemy->GetTroop(), p_enemy->GetRace().c_str(), p_enemy->GetId(), city);
+    cout << msg;
+}
+
+void GameMaster::DieLog(int hour, int city, Warrior* p_warr)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:40 %s %s %d was killed in city %d\n", hour,
+            p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(), city);
+    cout << msg;
+}
+
+void GameMaster::YellLog(int hour, int city, Warrior* p_warr)
+{
+    char msg[SIZE_BLAH_BUF];
+    sprintf(msg, "%03d:40 %s %s %d yelled in city %d\n", hour, p_warr->GetTroop(),
+            p_warr->GetRace().c_str(), p_warr->GetId(), city);
+    cout << msg;
 }
 
 bool GameMaster::CheckTermination()
