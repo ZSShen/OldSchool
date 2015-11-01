@@ -3,7 +3,7 @@
 #include <typeinfo>
 #include <sstream>
 #include <vector>
-#include <queue>
+#include <deque>
 #include <cstdio>
 
 using namespace std;
@@ -111,6 +111,11 @@ class Arrow : public Weapon
         if (times_ == 0)
             useable_ = false;
     }
+
+    int GetTimes()
+    {
+        return times_;
+    }
 };
 
 
@@ -189,6 +194,16 @@ class Warrior
     const string& GetRace()
     {
         return race_;
+    }
+
+    int GetArrowState()
+    {
+        return static_cast<Arrow*>(p_arrow_)->GetTimes();
+    }
+
+    int GetSwordState()
+    {
+        return static_cast<int>(p_sword_->GetPower());
     }
 
     bool IsAlive()
@@ -562,8 +577,8 @@ class Place
   private:
     char flag_, streak_;
     int life_;
-    queue<Warrior*> q_red_;
-    queue<Warrior*> q_blue_;
+    deque<Warrior*> q_red_;
+    deque<Warrior*> q_blue_;
 
   public:
     enum {FLAG_NONE, FLAG_RED, FLAG_BLUE};
@@ -579,15 +594,15 @@ class Place
 
     ~Place()
     {
-        while (!q_red_.empty()) {
-            Warrior* p_warr = q_red_.front();
-            delete p_warr;
-            q_red_.pop();
+        deque<Warrior*>::iterator iter = q_red_.begin();
+        while (iter != q_red_.end()) {
+            delete *iter;
+            ++iter;
         }
-        while (!q_blue_.empty()) {
-            Warrior* p_warr = q_blue_.front();
-            delete p_warr;
-            q_blue_.pop();
+        iter = q_blue_.begin();
+        while (iter != q_blue_.end()) {
+            delete *iter;
+            ++iter;
         }
     }
 
@@ -638,17 +653,27 @@ class Place
 
     void SetRedWarrior(Warrior* p_warr)
     {
-        q_red_.push(p_warr);
+        q_red_.push_back(p_warr);
     }
 
     void SetBlueWarrior(Warrior* p_warr)
     {
-        q_blue_.push(p_warr);
+        q_blue_.push_back(p_warr);
     }
 
     Warrior* GetRedWarrior()
     {
         return (q_red_.empty())? NULL : q_red_.front();
+    }
+
+    const deque<Warrior*>& GetRedWarriors()
+    {
+        return q_red_;
+    }
+
+    const deque<Warrior*>& GetBlueWarriors()
+    {
+        return q_blue_;
     }
 
     Warrior* GetBlueWarrior()
@@ -659,13 +684,13 @@ class Place
     void PopRedWarrior()
     {
         if (!q_red_.empty())
-            q_red_.pop();
+            q_red_.pop_front();
     }
 
     void PopBlueWarrior()
     {
         if (!q_blue_.empty())
-            q_blue_.pop();
+            q_blue_.pop_front();
     }
 
     int CountRedWarrior()
@@ -882,6 +907,7 @@ class GameMaster
     void RaiseFlagLog(int, int, const char*);
 
     void EndRound(int);
+    void ReportWarriorLog(int, Warrior*);
 
     bool CheckTermination();
 
@@ -936,6 +962,9 @@ void GameMaster::Run()
 
         // At h:40, warrios fight.
         Fight(hour);
+
+        // At h:50, HQs and warriors report their status.
+        EndRound(hour);
 
         ++hour;
     }
@@ -1402,8 +1431,57 @@ void GameMaster::EndRound(int hour)
         Warrior* p_warr = vec_place_[i].GetRedWarrior();
         if (!p_warr)
             continue;
-
+        ReportWarriorLog(hour, p_warr);
     }
+    const deque<Warrior*>& red_warrs = vec_place_[POS_BLUEHQ].GetRedWarriors();
+    deque<Warrior*>::const_iterator iter = red_warrs.begin();
+    while (iter != red_warrs.end()) {
+        ReportWarriorLog(hour, *iter);
+        ++iter;
+    }
+
+    const deque<Warrior*>& blue_warrs = vec_place_[POS_REDHQ].GetBlueWarriors();
+    iter = blue_warrs.begin();
+    while (iter != blue_warrs.end()) {
+        ReportWarriorLog(hour, *iter);
+        ++iter;
+    }
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Warrior* p_warr = vec_place_[i].GetBlueWarrior();
+        if (!p_warr)
+            continue;
+        ReportWarriorLog(hour, p_warr);
+    }
+}
+
+void GameMaster::ReportWarriorLog(int hour, Warrior* p_warr)
+{
+    char msg[SIZE_BLAH_BUF];
+    int ofst = sprintf(msg, "%03d:55 %s %s %d has ", hour, p_warr->GetTroop(),
+                       p_warr->GetRace().c_str(), p_warr->GetId());
+
+    bool has_weapon = false;
+    if (p_warr->HasArrow()) {
+        ofst += sprintf(msg + ofst, "arrow(%d)\n", p_warr->GetArrowState());
+        has_weapon = true;
+    }
+    if (p_warr->HasBomb()) {
+        if (has_weapon)
+            ofst += sprintf(msg + ofst - 1, ",bomb\n");
+        else
+            ofst += sprintf(msg + ofst, "bomb\n");
+        has_weapon = true;
+    }
+    if (p_warr->HasSword()) {
+        if (has_weapon)
+            sprintf(msg + ofst - 1, ",sword(%d)\n", p_warr->GetSwordState());
+        else
+            sprintf(msg + ofst, "sword(%d)\n", p_warr->GetSwordState());
+        has_weapon = true;
+    }
+    if (!has_weapon)
+        sprintf(msg + ofst, "no weapon\n");
+    cout << msg;
 }
 
 bool GameMaster::CheckTermination()
@@ -1429,6 +1507,7 @@ int main()
         cin >> config.power_dragon >> config.power_ninja >> config.power_iceman \
             >> config.power_lion >> config.power_wolf;
 
+        cout << "Case " << i + 1 << ':' << endl;
         GameMaster gm(config);
         gm.Run();
     }
