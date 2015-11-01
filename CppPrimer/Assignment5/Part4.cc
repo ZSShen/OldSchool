@@ -44,10 +44,10 @@ class Weapon
 {
   protected:
     bool useable_;
-    double power_;
+    int power_;
 
   public:
-    Weapon(bool useable, double power)
+    Weapon(bool useable, int power)
       : useable_(useable),
         power_(power)
     {}
@@ -61,7 +61,7 @@ class Weapon
     {
         return useable_;
     }
-    double GetPower()
+    int GetPower()
     {
         return power_;
     }
@@ -70,7 +70,7 @@ class Weapon
 class Sword : public Weapon
 {
   public:
-    Sword(double power)
+    Sword(int power)
       : Weapon((power != 0), power)
     {}
 
@@ -99,7 +99,7 @@ class Arrow : public Weapon
     int times_;
 
   public:
-    Arrow(double power)
+    Arrow(int power)
       : Weapon((power != 0), power),
         times_(3)
     {}
@@ -125,6 +125,7 @@ class Arrow : public Weapon
 class Warrior
 {
   protected:
+    bool walked_;
     int id_, life_, power_, step_;
     const char* troop_;
     Weapon *p_sword_, *p_bomb_, *p_arrow_;
@@ -132,7 +133,8 @@ class Warrior
 
   public:
     Warrior(const char* troop, const string& race, int id, int life, int power)
-      : id_(id),
+      : walked_(false),
+        id_(id),
         life_(life),
         power_(power),
         step_(0),
@@ -155,7 +157,7 @@ class Warrior
 
     virtual void Attack(Warrior*) = 0;
     virtual void FightBack(Warrior*) = 0;
-    virtual void ChargeAfterFight(Warrior*) = 0;
+    virtual void ChargeAfterFight(Warrior*, bool) = 0;
 
     virtual int GetAttackPower();
     virtual int GetFightBackPower(int);
@@ -164,6 +166,17 @@ class Warrior
     virtual void WalkAhead()
     {
         ++step_;
+        walked_ = true;
+    }
+
+    bool HasWalked()
+    {
+        return walked_;
+    }
+
+    void ResetWalkState()
+    {
+        walked_ = false;
     }
 
     int GetId()
@@ -203,7 +216,7 @@ class Warrior
 
     int GetSwordState()
     {
-        return static_cast<int>(p_sword_->GetPower());
+        return p_sword_->GetPower();
     }
 
     bool IsAlive()
@@ -259,10 +272,10 @@ class Warrior
     int Shot()
     {
         p_arrow_->Age();
-        return static_cast<int>(p_arrow_->GetPower());
+        return p_arrow_->GetPower();
     }
 
-    void BeWound(int atk_point)
+    virtual void BeWound(int atk_point)
     {
         life_ = (life_ > atk_point)? (life_ - atk_point) : 0;
     }
@@ -272,7 +285,7 @@ int Warrior::GetAttackPower()
 {
     int atk_point = power_;
     if (p_sword_ && p_sword_->IsUseable())
-        atk_point += static_cast<int>(p_sword_->GetPower());
+        atk_point += p_sword_->GetPower();
     return atk_point;
 }
 
@@ -282,7 +295,7 @@ int Warrior::GetFightBackPower(int atk_point)
         return 0;
     atk_point = power_ >> 1;
     if (p_sword_ && p_sword_->IsUseable())
-        atk_point += static_cast<int>(p_sword_->GetPower());
+        atk_point += p_sword_->GetPower();
     return atk_point;
 }
 
@@ -325,25 +338,27 @@ class Dragon : public Warrior
     {
         int atk_point = power_;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
     }
 
-    void ChargeAfterFight(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy, bool faught)
     {
-        if (p_enemy->IsAlive())
-            morale_ -= 0.2;
-        else
-            morale_ += 0.2;
+        if (faught) {
+            if (p_enemy->IsAlive())
+                morale_ -= 0.2;
+            else
+                morale_ += 0.2;
+        }
     }
 
     void FightBack(Warrior* p_enemy)
     {
         int atk_point = power_ >> 1;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
@@ -389,13 +404,13 @@ class Ninja : public Warrior
     {
         int atk_point = power_;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
     }
 
-    void ChargeAfterFight(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy, bool faught)
     {}
 
     void FightBack(Warrior* p_enemy)
@@ -430,20 +445,20 @@ class Iceman : public Warrior
     {
         int atk_point = power_;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
     }
 
-    void ChargeAfterFight(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy, bool faught)
     {}
 
     void FightBack(Warrior* p_enemy)
     {
         int atk_point = power_ >> 1;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
@@ -459,6 +474,7 @@ class Iceman : public Warrior
                 life_ = 1;
             power_ += 20;
         }
+        walked_ = true;
     }
 };
 
@@ -487,13 +503,15 @@ class Lion : public Warrior
         p_enemy->BeWound(power_);
     }
 
-    void ChargeAfterFight(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy, bool faught)
     {
-        if (p_enemy->IsAlive())
-            loyalty_ -= degrade_;
+        if (faught) {
+            if (p_enemy->IsAlive())
+                loyalty_ -= degrade_;
 
-        if (!IsAlive())
-            p_enemy->AddLifePoint(legacy_);
+            if (!IsAlive())
+                p_enemy->AddLifePoint(legacy_);
+        }
     }
 
     void FightBack(Warrior* p_enemy)
@@ -538,13 +556,13 @@ class Wolf : public Warrior
     {
         int atk_point = power_;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
     }
 
-    void ChargeAfterFight(Warrior* p_enemy)
+    void ChargeAfterFight(Warrior* p_enemy, bool faught)
     {
         if (p_enemy->IsAlive())
             return;
@@ -561,7 +579,7 @@ class Wolf : public Warrior
     {
         int atk_point = power_ >> 1;
         if (HasSword()) {
-            atk_point += static_cast<int>(p_sword_->GetPower());
+            atk_point += p_sword_->GetPower();
             p_sword_->Age();
         }
         p_enemy->BeWound(atk_point);
@@ -637,6 +655,11 @@ class Place
     char GetFlag()
     {
         return flag_;
+    }
+
+    int GetLifePoint()
+    {
+        return life_;
     }
 
     void ProduceLifePoint()
@@ -774,6 +797,15 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
 {
     Warrior *p_warr = NULL;
     switch (turn_ % TOTAL_TYPE_WARRIOR) {
+      case 0:
+        if (life_ < config_.life_dragon)
+            break;
+        life_ -= config_.life_dragon;
+        p_warr = new Dragon(troop, turn_, config_.life_dragon, config_.power_dragon,
+                            static_cast<double>(life_) / config_.life_dragon,
+                            config_.power_arrow);
+        ++turn_;
+        break;
       case 1:
         if (life_ < config_.life_iceman)
             break;
@@ -803,15 +835,6 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
         life_ -= config_.life_ninja;
         p_warr = new Ninja(troop, turn_, config_.life_ninja, config_.power_ninja,
                            config_.power_arrow);
-        ++turn_;
-        break;
-      case 5:
-        if (life_ < config_.life_dragon)
-            break;
-        life_ -= config_.life_dragon;
-        p_warr = new Dragon(troop, turn_, config_.life_dragon, config_.power_dragon,
-                            static_cast<double>(life_) / config_.life_dragon,
-                            config_.power_arrow);
         ++turn_;
     }
 
@@ -822,6 +845,13 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
 {
     Warrior *p_warr = NULL;
     switch (turn_ % TOTAL_TYPE_WARRIOR) {
+      case 0:
+        if (life_ < config_.life_wolf)
+            break;
+        life_ -= config_.life_wolf;
+        p_warr = new Wolf(troop, turn_, config_.life_wolf, config_.power_wolf);
+        ++turn_;
+        break;
       case 1:
         if (life_ < config_.life_lion)
             break;
@@ -853,13 +883,6 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
         life_ -= config_.life_iceman;
         p_warr = new Iceman(troop, turn_, config_.life_iceman, config_.power_iceman,
                             config_.power_arrow);
-        ++turn_;
-        break;
-      case 5:
-        if (life_ < config_.life_wolf)
-            break;
-        life_ -= config_.life_wolf;
-        p_warr = new Wolf(troop, turn_, config_.life_wolf, config_.power_wolf);
         ++turn_;
     }
 
@@ -891,7 +914,7 @@ class GameMaster
 
     void ProduceLifePoint();
     void GatherLifePoint(int);
-    void GatherLifePointLog(int, Warrior*, int);
+    void GatherLifePointLog(int, int, Warrior*, int);
 
     void ShotEnemy(int);
     void ShotEnemyLog(int, Warrior*, Warrior*);
@@ -1063,7 +1086,7 @@ void GameMaster::MarchWarrior(int hour)
 {
     // Handle the warrior in blue troop which is ready to march for red HQ.
     Warrior* p_warr = vec_place_[POS_REDHQ + 1].GetBlueWarrior();
-    if (p_warr && (p_warr->GetWalkStep() == config_.num_city)) {
+    if (p_warr && !p_warr->HasWalked()) {
         p_warr->WalkAhead();
         vec_place_[POS_REDHQ].SetBlueWarrior(p_warr);
         vec_place_[POS_REDHQ + 1].PopBlueWarrior();
@@ -1075,7 +1098,7 @@ void GameMaster::MarchWarrior(int hour)
     // Handle the warriors ready to march for cities from #1 to #N.
     for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
         p_warr = vec_place_[i - 1].GetRedWarrior();
-        if (p_warr && (p_warr->GetWalkStep() == (i - 1))) {
+        if (p_warr && !p_warr->HasWalked()) {
             p_warr->WalkAhead();
             vec_place_[i].SetRedWarrior(p_warr);
             vec_place_[i - 1].PopRedWarrior();
@@ -1083,7 +1106,7 @@ void GameMaster::MarchWarrior(int hour)
         }
 
         p_warr = vec_place_[i + 1].GetBlueWarrior();
-        if (p_warr && (p_warr->GetWalkStep() == (config_.num_city - i))) {
+        if (p_warr && !p_warr->HasWalked()) {
             p_warr->WalkAhead();
             vec_place_[i].SetBlueWarrior(p_warr);
             vec_place_[i + 1].PopBlueWarrior();
@@ -1093,13 +1116,22 @@ void GameMaster::MarchWarrior(int hour)
 
     // Handle the warrior in red troop which is ready to march for blue HQ.
     p_warr = vec_place_[POS_BLUEHQ - 1].GetRedWarrior();
-    if (p_warr && (p_warr->GetWalkStep() == config_.num_city)) {
+    if (p_warr && !p_warr->HasWalked()) {
         p_warr->WalkAhead();
         vec_place_[POS_BLUEHQ].SetRedWarrior(p_warr);
         vec_place_[POS_BLUEHQ - 1].PopRedWarrior();
         MarchWarriorLogToHQ(hour, p_warr, TROOP_BLUE);
         if (vec_place_[POS_BLUEHQ].CountRedWarrior() == 2)
             MarchWarriorLogTakeHQ(hour, TROOP_BLUE);
+    }
+
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Warrior* p_warr = vec_place_[i].GetRedWarrior();
+        if (p_warr)
+            p_warr->ResetWalkState();
+        p_warr = vec_place_[i].GetBlueWarrior();
+        if (p_warr)
+            p_warr->ResetWalkState();
     }
 }
 
@@ -1142,23 +1174,23 @@ void GameMaster::GatherLifePoint(int hour)
             Warrior* p_warr = city.GetRedWarrior();
             int life = city.BeHunted();
             p_redhq_->RecycleLifePoint(life);
-            GatherLifePointLog(hour, p_warr, life);
+            GatherLifePointLog(hour, 30, p_warr, life);
             continue;
         }
         if ((city.CountRedWarrior() == 0) && (city.CountBlueWarrior() == 1)) {
             Warrior* p_warr = city.GetBlueWarrior();
             int life = city.BeHunted();
             p_bluehq_->RecycleLifePoint(life);
-            GatherLifePointLog(hour, p_warr, life);
+            GatherLifePointLog(hour, 30, p_warr, life);
         }
     }
 }
 
-void GameMaster::GatherLifePointLog(int hour, Warrior* p_warr, int life)
+void GameMaster::GatherLifePointLog(int hour, int minute, Warrior* p_warr, int life)
 {
     char msg[SIZE_BLAH_BUF];
-    sprintf(msg, "%03d:30 %s %s %d earned %d elements for his headquarter\n",
-        hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(), life);
+    sprintf(msg, "%03d:%d %s %s %d earned %d elements for his headquarter\n", hour,
+        minute, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(), life);
     cout << msg;
 }
 
@@ -1174,6 +1206,14 @@ void GameMaster::ShotEnemy(int hour)
         int atk_point = p_warr->Shot();
         p_enemy->BeWound(atk_point);
         ShotEnemyLog(hour, p_warr, p_enemy);
+
+        if (!p_enemy->IsAlive()) {
+            Warrior* p_partner = vec_place_[POS_REDHQ + 2].GetRedWarrior();
+            if (!p_partner || !p_partner->IsAlive()) {
+                vec_place_[POS_BLUEHQ + 2].PopBlueWarrior();
+                delete p_enemy;
+            }
+        }
     }
 
     // Handle the warriors standing at cities from #2 to #(N-1).
@@ -1184,6 +1224,14 @@ void GameMaster::ShotEnemy(int hour)
             int atk_point = p_warr->Shot();
             p_enemy->BeWound(atk_point);
             ShotEnemyLog(hour, p_warr, p_enemy);
+
+            if (!p_enemy->IsAlive()) {
+                Warrior* p_partner = vec_place_[i + 1].GetRedWarrior();
+                if (!p_partner || !p_partner->IsAlive()) {
+                    vec_place_[i + 1].PopBlueWarrior();
+                    delete p_enemy;
+                }
+            }
         }
 
         p_warr = vec_place_[i].GetBlueWarrior();
@@ -1192,6 +1240,14 @@ void GameMaster::ShotEnemy(int hour)
             int atk_point = p_warr->Shot();
             p_enemy->BeWound(atk_point);
             ShotEnemyLog(hour, p_warr, p_enemy);
+
+            if (!p_enemy->IsAlive()) {
+                Warrior* p_partner = vec_place_[i - 1].GetBlueWarrior();
+                if (!p_partner || !p_partner->IsAlive()) {
+                    vec_place_[i - 1].PopRedWarrior();
+                    delete p_enemy;
+                }
+            }
         }
     }
 
@@ -1202,6 +1258,14 @@ void GameMaster::ShotEnemy(int hour)
         int atk_point = p_warr->Shot();
         p_enemy->BeWound(atk_point);
         ShotEnemyLog(hour, p_warr, p_enemy);
+
+        if (!p_enemy->IsAlive()) {
+            Warrior* p_partner = vec_place_[POS_BLUEHQ - 2].GetBlueWarrior();
+            if (!p_partner || !p_partner->IsAlive()) {
+                vec_place_[POS_BLUEHQ - 2].PopRedWarrior();
+                delete p_enemy;
+            }
+        }
     }
 }
 
@@ -1221,25 +1285,40 @@ void GameMaster::ExplodeEnemy(int hour)
     for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
         Warrior* p_warr = vec_place_[i].GetRedWarrior();
         Warrior* p_enemy = vec_place_[i].GetBlueWarrior();
-        if (p_warr && p_enemy && p_warr->HasBomb() &&
-            p_warr->WillBeKilled(p_enemy)) {
-            ExplodeEnemyLog(hour, p_warr, p_enemy);
-            vec_place_[i].PopRedWarrior();
-            vec_place_[i].PopBlueWarrior();
-            delete p_warr;
-            delete p_enemy;
-            continue;
+        char flag = vec_place_[i].GetFlag();
+
+        if (p_warr && p_enemy && p_warr->IsAlive() && p_warr->HasBomb()) {
+            bool to_die = false;
+            if (flag == Place::FLAG_BLUE)
+                to_die = p_warr->WillBeKilled(p_enemy);
+            else if ((flag == Place::FLAG_NONE) && ((i >> 1 << 1) == i))
+                to_die = p_warr->WillBeKilled(p_enemy);
+            if (to_die) {
+                ExplodeEnemyLog(hour, p_warr, p_enemy);
+                vec_place_[i].PopRedWarrior();
+                vec_place_[i].PopBlueWarrior();
+                delete p_warr;
+                delete p_enemy;
+                continue;
+            }
         }
 
         p_warr = vec_place_[i].GetBlueWarrior();
         p_enemy = vec_place_[i].GetRedWarrior();
-        if (p_warr && p_enemy && p_warr->HasBomb() &&
-            p_warr->WillBeKilled(p_enemy)) {
-            ExplodeEnemyLog(hour, p_warr, p_enemy);
-            vec_place_[i].PopBlueWarrior();
-            vec_place_[i].PopRedWarrior();
-            delete p_warr;
-            delete p_enemy;
+        if (p_warr && p_enemy && p_warr->IsAlive() && p_warr->HasBomb()) {
+            bool to_die = false;
+            if (flag == Place::FLAG_RED)
+                to_die = p_warr->WillBeKilled(p_enemy);
+            else if ((flag == Place::FLAG_NONE) && ((i >> 1 << 1) != i))
+                to_die = p_warr->WillBeKilled(p_enemy);
+
+            if (to_die) {
+                ExplodeEnemyLog(hour, p_warr, p_enemy);
+                vec_place_[i].PopBlueWarrior();
+                vec_place_[i].PopRedWarrior();
+                delete p_warr;
+                delete p_enemy;
+            }
         }
     }
 }
@@ -1287,7 +1366,9 @@ void GameMaster::Fight(int hour)
             p_passive = p_red;
         }
 
-        if (!p_passive->IsAlive()) {
+        bool faught = false;
+        if (p_active->IsAlive() && p_passive->IsAlive()) {
+            faught = true;
             ActiveFightLog(hour, i, p_active, p_passive);
             p_active->Attack(p_passive);
             if (p_passive->IsAlive()) {
@@ -1299,8 +1380,8 @@ void GameMaster::Fight(int hour)
                 DieLog(hour, i, p_passive);
         }
 
-        p_active->ChargeAfterFight(p_passive);
-        p_passive->ChargeAfterFight(p_active);
+        p_active->ChargeAfterFight(p_passive, faught);
+        p_passive->ChargeAfterFight(p_active, faught);
 
         // Dragon yells if necessary.
         if ((typeid(*p_active) == typeid(Dragon)) && p_active->IsAlive() &&
@@ -1323,6 +1404,7 @@ void GameMaster::Fight(int hour)
                 vec_place_[i].MarkBlueWin();
                 vec_place_[i].PopRedWarrior();
             }
+            GatherLifePointLog(hour, 40, p_active, vec_place_[i].GetLifePoint());
             delete p_passive;
         } else {
             if (p_passive == p_red) {
@@ -1334,14 +1416,15 @@ void GameMaster::Fight(int hour)
                 vec_place_[i].MarkBlueWin();
                 vec_place_[i].PopRedWarrior();
             }
+            GatherLifePointLog(hour, 40, p_passive, vec_place_[i].GetLifePoint());
             delete p_active;
         }
 
         char flag_after = vec_place_[i].GetFlag();
         if (flag_after != flag) {
-            if (flag == Place::FLAG_RED)
+            if (flag_after == Place::RED_WIN)
                 RaiseFlagLog(hour, i, TROOP_RED);
-            else
+            else if (flag_after == Place::BLUE_WIN)
                 RaiseFlagLog(hour, i, TROOP_BLUE);
         }
     }
@@ -1357,7 +1440,7 @@ void GameMaster::Fight(int hour)
         if ((win_record[j] == Place::BLUE_WIN) &&
             (p_bluehq_->GetLifePoint() >= 8)) {
             p_bluehq_->OfferLifePoint();
-            vec_place_[j].GetRedWarrior()->AddLifePoint(8);
+            vec_place_[j].GetBlueWarrior()->AddLifePoint(8);
         }
     }
 
@@ -1366,7 +1449,7 @@ void GameMaster::Fight(int hour)
         if (win_record[i] == Place::RED_WIN) {
             int life = vec_place_[i].BeHunted();
             p_redhq_->RecycleLifePoint(life);
-        } else {
+        } else if (win_record[i] == Place::BLUE_WIN){
             int life = vec_place_[i].BeHunted();
             p_bluehq_->RecycleLifePoint(life);
         }
@@ -1377,7 +1460,7 @@ void GameMaster::ActiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:40 %s %s %d attacked %s %s %d in city %d with %d elements"
-            "and force %d\n", hour, p_warr->GetTroop(), p_warr->GetRace().c_str(),
+            " and force %d\n", hour, p_warr->GetTroop(), p_warr->GetRace().c_str(),
             p_warr->GetId(), p_enemy->GetTroop(), p_enemy->GetRace().c_str(),
             p_enemy->GetId(), city, p_warr->GetLifePoint(),
             p_warr->GetAttackPowerNoWeapon());
@@ -1386,6 +1469,9 @@ void GameMaster::ActiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_
 
 void GameMaster::PassiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_enemy)
 {
+    if (typeid(*p_warr) == typeid(Ninja))
+        return;
+
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:40 %s %s %d fought back against %s %s %d in city %d\n",
             hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
