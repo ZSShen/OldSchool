@@ -311,18 +311,6 @@ bool Warrior::WillBeKilled(Warrior* p_enemy)
     return (p_enemy->GetAttackPower() >= life_)? true : false;
 }
 
-/*
-bool Warrior::WillBeKilled(Warrior* p_enemy)
-{
-    if (p_enemy->GetAttackPower() >= life_)
-        return true;
-    int atk_point = GetAttackPower();
-    if (p_enemy->GetFightBackPower(atk_point) >= life_)
-        return true;
-    return false;
-}
-*/
-
 class Dragon : public Warrior
 {
   private:
@@ -645,28 +633,28 @@ class Place
     void MarkRedWin()
     {
         switch (streak_) {
-            case -2:
-            case -1:
-            case 0:
-                streak_ = 1;
-                break;
-            case 1:
-                streak_ = 2;
-                flag_ = FLAG_RED;
+          case -2:
+          case -1:
+          case 0:
+            streak_ = 1;
+            break;
+          case 1:
+            streak_ = 2;
+            flag_ = FLAG_RED;
         }
     }
 
     void MarkBlueWin()
     {
         switch (streak_) {
-            case 2:
-            case 1:
-            case 0:
-                streak_ = -1;
-                break;
-            case -1:
-                streak_ = -2;
-                flag_ = FLAG_BLUE;
+          case 2:
+          case 1:
+          case 0:
+            streak_ = -1;
+            break;
+          case -1:
+            streak_ = -2;
+            flag_ = FLAG_BLUE;
         }
     }
 
@@ -1362,14 +1350,14 @@ void GameMaster::Fight(int hour)
         bool red_first = true;
         char flag = vec_place_[i].GetFlag();
         switch (flag) {
-            case Place::FLAG_RED:
-                break;
-            case Place::FLAG_BLUE:
+          case Place::FLAG_RED:
+            break;
+          case Place::FLAG_BLUE:
+            red_first = false;
+            break;
+          default:
+            if ((i >> 1 << 1) == i)
                 red_first = false;
-                break;
-            default:
-                if ((i >> 1 << 1) == i)
-                    red_first = false;
         }
 
         Warrior *p_active, *p_passive;
