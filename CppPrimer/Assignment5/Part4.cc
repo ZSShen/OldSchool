@@ -161,6 +161,7 @@ class Warrior
 
     virtual int GetAttackPower();
     virtual int GetFightBackPower(int);
+    virtual bool WillBeKilledByFightBack(Warrior*);
     virtual bool WillBeKilled(Warrior*);
 
     virtual void WalkAhead()
@@ -299,6 +300,18 @@ int Warrior::GetFightBackPower(int atk_point)
     return atk_point;
 }
 
+bool Warrior::WillBeKilledByFightBack(Warrior* p_enemy)
+{
+    int atk_point = GetAttackPower();
+    return (p_enemy->GetFightBackPower(atk_point) >= life_)? true : false;
+}
+
+bool Warrior::WillBeKilled(Warrior* p_enemy)
+{
+    return (p_enemy->GetAttackPower() >= life_)? true : false;
+}
+
+/*
 bool Warrior::WillBeKilled(Warrior* p_enemy)
 {
     if (p_enemy->GetAttackPower() >= life_)
@@ -308,7 +321,7 @@ bool Warrior::WillBeKilled(Warrior* p_enemy)
         return true;
     return false;
 }
-
+*/
 
 class Dragon : public Warrior
 {
@@ -622,6 +635,11 @@ class Place
             delete *iter;
             ++iter;
         }
+    }
+
+    void MarkEven()
+    {
+        streak_ = 0;
     }
 
     void MarkRedWin()
@@ -957,38 +975,63 @@ class GameMaster
 
 void GameMaster::Run()
 {
-    int hour = 0;
-    int total = config_.minute / 60;
-    while (hour < total) {
+    int minute = 0, hour = 0;;
+    while (true) {
         // At h:00, HQs produce warriors.
         ProduceWarrior(hour);
+        minute += 5;
+        if (minute > config_.minute)
+            break;
 
         // At h:05, the lions with loyalty less than or equal to 0 should flee.
         FleeLion(hour);
+        minute += 5;
+        if (minute > config_.minute)
+            break;
 
         // At h:10, each warrior marches one step further to the enemy HQ.
         MarchWarrior(hour);
+        minute += 10;
+        if (minute > config_.minute)
+            break;
         if (CheckTermination())
             break;
 
         // At h:20, each city produces 10 life points.
         ProduceLifePoint();
+        minute += 10;
+        if (minute > config_.minute)
+            break;
 
         // At h:30, warriors try to gather life points for their HQ.
         GatherLifePoint(hour);
+        minute += 5;
+        if (minute > config_.minute)
+            break;
 
         // At h:35, warriors having arrows should their rivals.
         ShotEnemy(hour);
+        minute += 3;
+        if (minute > config_.minute)
+            break;
 
         // At h:38, warriors having bombs try to explode rivals.
         ExplodeEnemy(hour);
+        minute += 2;
+        if (minute > config_.minute)
+            break;
 
         // At h:40, warrios fight.
         Fight(hour);
+        minute += 10;
+        if (minute > config_.minute)
+            break;
 
         // At h:50, HQs and warriors report their status.
         EndRound(hour);
-
+        minute += 10;
+        if (minute > config_.minute)
+            break;
         ++hour;
     }
 }
@@ -1199,72 +1242,39 @@ void GameMaster::ShotEnemy(int hour)
     if (config_.num_city == 1)
         return;
 
-    // Handle the warrior standing at city #1.
-    Warrior* p_warr = vec_place_[POS_REDHQ + 1].GetRedWarrior();
-    Warrior* p_enemy = vec_place_[POS_REDHQ + 2].GetBlueWarrior();
-    if (p_warr && p_enemy && p_warr->HasArrow()) {
-        int atk_point = p_warr->Shot();
-        p_enemy->BeWound(atk_point);
-        ShotEnemyLog(hour, p_warr, p_enemy);
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Warrior* p_red_active = vec_place_[i].GetRedWarrior();
+        Warrior* p_blue_passive = vec_place_[i + 1].GetBlueWarrior();
+        Warrior* p_blue_active = vec_place_[i].GetBlueWarrior();
+        Warrior* p_red_passive = vec_place_[i - 1].GetRedWarrior();
 
-        if (!p_enemy->IsAlive()) {
-            Warrior* p_partner = vec_place_[POS_REDHQ + 2].GetRedWarrior();
-            if (!p_partner || !p_partner->IsAlive()) {
-                vec_place_[POS_BLUEHQ + 2].PopBlueWarrior();
-                delete p_enemy;
-            }
+        if (p_red_active && p_blue_passive && p_red_active->HasArrow()) {
+            int atk_point = p_red_active->Shot();
+            p_blue_passive->BeWound(atk_point);
+            ShotEnemyLog(hour, p_red_active, p_blue_passive);
+        }
+        if (p_blue_active && p_red_passive && p_blue_active->HasArrow()) {
+            int atk_point = p_blue_active->Shot();
+            p_red_passive->BeWound(atk_point);
+            ShotEnemyLog(hour, p_blue_active, p_red_passive);
         }
     }
 
-    // Handle the warriors standing at cities from #2 to #(N-1).
-    for (int i = 2 ; i < POS_BLUEHQ - 1 ; ++i) {
-        p_warr = vec_place_[i].GetRedWarrior();
-        p_enemy = vec_place_[i + 1].GetBlueWarrior();
-        if (p_warr && p_enemy && p_warr->HasArrow()) {
-            int atk_point = p_warr->Shot();
-            p_enemy->BeWound(atk_point);
-            ShotEnemyLog(hour, p_warr, p_enemy);
-
-            if (!p_enemy->IsAlive()) {
-                Warrior* p_partner = vec_place_[i + 1].GetRedWarrior();
-                if (!p_partner || !p_partner->IsAlive()) {
-                    vec_place_[i + 1].PopBlueWarrior();
-                    delete p_enemy;
-                }
-            }
+    for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
+        Warrior* p_red = vec_place_[i].GetRedWarrior();
+        Warrior* p_blue = vec_place_[i].GetBlueWarrior();
+        if (p_red && p_blue)
+            continue;
+        if (!p_red && !p_blue)
+            continue;
+        if (!p_red && !p_blue->IsAlive()) {
+            vec_place_[i].PopBlueWarrior();
+            delete p_blue;
+            continue;
         }
-
-        p_warr = vec_place_[i].GetBlueWarrior();
-        p_enemy = vec_place_[i - 1].GetRedWarrior();
-        if (p_warr && p_enemy && p_warr->HasArrow()) {
-            int atk_point = p_warr->Shot();
-            p_enemy->BeWound(atk_point);
-            ShotEnemyLog(hour, p_warr, p_enemy);
-
-            if (!p_enemy->IsAlive()) {
-                Warrior* p_partner = vec_place_[i - 1].GetBlueWarrior();
-                if (!p_partner || !p_partner->IsAlive()) {
-                    vec_place_[i - 1].PopRedWarrior();
-                    delete p_enemy;
-                }
-            }
-        }
-    }
-
-    // Handle the warrior standing at city #N.
-    p_warr = vec_place_[POS_BLUEHQ - 1].GetBlueWarrior();
-    p_enemy = vec_place_[POS_BLUEHQ - 2].GetRedWarrior();
-    if (p_warr && p_enemy && p_warr->HasArrow()) {
-        int atk_point = p_warr->Shot();
-        p_enemy->BeWound(atk_point);
-        ShotEnemyLog(hour, p_warr, p_enemy);
-
-        if (!p_enemy->IsAlive()) {
-            Warrior* p_partner = vec_place_[POS_BLUEHQ - 2].GetBlueWarrior();
-            if (!p_partner || !p_partner->IsAlive()) {
-                vec_place_[POS_BLUEHQ - 2].PopRedWarrior();
-                delete p_enemy;
-            }
+        if (!p_blue && !p_red->IsAlive()) {
+            vec_place_[i].PopRedWarrior();
+            delete p_red;
         }
     }
 }
@@ -1283,42 +1293,47 @@ void GameMaster::ShotEnemyLog(int hour, Warrior* p_warr, Warrior* p_enemy)
 void GameMaster::ExplodeEnemy(int hour)
 {
     for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
-        Warrior* p_warr = vec_place_[i].GetRedWarrior();
-        Warrior* p_enemy = vec_place_[i].GetBlueWarrior();
         char flag = vec_place_[i].GetFlag();
-
-        if (p_warr && p_enemy && p_warr->IsAlive() && p_warr->HasBomb()) {
-            bool to_die = false;
-            if (flag == Place::FLAG_BLUE)
-                to_die = p_warr->WillBeKilled(p_enemy);
-            else if ((flag == Place::FLAG_NONE) && ((i >> 1 << 1) == i))
-                to_die = p_warr->WillBeKilled(p_enemy);
-            if (to_die) {
-                ExplodeEnemyLog(hour, p_warr, p_enemy);
-                vec_place_[i].PopRedWarrior();
-                vec_place_[i].PopBlueWarrior();
-                delete p_warr;
-                delete p_enemy;
-                continue;
-            }
+        bool red_first = false;
+        switch (flag) {
+          case Place::FLAG_RED:
+            red_first = true;
+            break;
+          case Place::FLAG_BLUE:
+            break;
+          default:
+            if ((i >> 1 << 1) != i)
+                red_first = true;
         }
 
-        p_warr = vec_place_[i].GetBlueWarrior();
-        p_enemy = vec_place_[i].GetRedWarrior();
-        if (p_warr && p_enemy && p_warr->IsAlive() && p_warr->HasBomb()) {
-            bool to_die = false;
-            if (flag == Place::FLAG_RED)
-                to_die = p_warr->WillBeKilled(p_enemy);
-            else if ((flag == Place::FLAG_NONE) && ((i >> 1 << 1) != i))
-                to_die = p_warr->WillBeKilled(p_enemy);
+        Warrior* p_red = vec_place_[i].GetRedWarrior();
+        Warrior* p_blue = vec_place_[i].GetBlueWarrior();
+        if (!p_red || !p_blue || !p_red->IsAlive() || !p_blue->IsAlive())
+            continue;
 
-            if (to_die) {
-                ExplodeEnemyLog(hour, p_warr, p_enemy);
-                vec_place_[i].PopBlueWarrior();
-                vec_place_[i].PopRedWarrior();
-                delete p_warr;
-                delete p_enemy;
-            }
+        Warrior *p_active, *p_passive;
+        if (red_first) {
+            p_active = p_red;
+            p_passive = p_blue;
+        } else {
+            p_active = p_blue;
+            p_passive = p_red;
+        }
+
+        if (p_passive->WillBeKilled(p_active) && p_passive->HasBomb()) {
+            ExplodeEnemyLog(hour, p_passive, p_active);
+            vec_place_[i].PopRedWarrior();
+            vec_place_[i].PopBlueWarrior();
+            delete p_passive;
+            delete p_active;
+            continue;
+        }
+        if (p_active->WillBeKilledByFightBack(p_passive) && p_active->HasBomb()) {
+            ExplodeEnemyLog(hour, p_active, p_passive);
+            vec_place_[i].PopRedWarrior();
+            vec_place_[i].PopBlueWarrior();
+            delete p_active;
+            delete p_passive;
         }
     }
 }
@@ -1391,6 +1406,7 @@ void GameMaster::Fight(int hour)
         // Check the winner and show the flag raising event if necessary.
         if (p_active->IsAlive() && p_passive->IsAlive()) {
             win_record[i] = Place::EVEN;
+            vec_place_[i].MarkEven();
             continue;
         }
 
