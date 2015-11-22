@@ -4,11 +4,52 @@
 #include <iostream>
 
 
+// Implement the smart pointer for resource management.
+template <typename T>
+class auto_array
+{
+  private:
+    T* array_;
+
+  public:
+    auto_array(T* array)
+      : array_(array)
+    {}
+
+    ~auto_array()
+    {
+        delete[] array_;
+    }
+
+    T* operator->() const
+    {
+        return array_;
+    }
+
+    T* get() const
+    {
+        return array_;
+    }
+
+    T& operator[] (std::size_t idx)
+    {
+        return array_[idx];
+    }
+
+    auto_array& operator= (T* array)
+    {
+        delete[] array_;
+        array_ = array;
+        return *this;
+    }
+};
+// End
+
 // Implement the class here.
 class MyString
 {
   private:
-    char* str_;
+    auto_array<char> str_;
 
   public:
     // Constructor, Copy Constructor, and Destructor.
@@ -21,52 +62,48 @@ class MyString
     MyString(const char* str)
       : str_(new char[strlen(str) + 1])
     {
-        strcpy(str_, str);
+        strcpy(str_.get(), str);
     }
 
     MyString(const char* str, std::size_t len)
       : str_(new char[len + 1])
     {
-        strncpy(str_, str, len);
+        strncpy(str_.get(), str, len);
         str_[len] = 0;
     }
 
     MyString(const char* str_src, const char* str_dst)
       : str_(new char[strlen(str_src) + strlen(str_dst) + 1])
     {
-        strcpy(str_, str_src);
-        std::size_t len = strlen(str_);
-        strcpy(str_ + len, str_dst);
+        strcpy(str_.get(), str_src);
+        std::size_t len = strlen(str_.get());
+        strcpy(str_.get() + len, str_dst);
     }
 
     MyString(const MyString& obj)
-      : str_(new char[strlen(obj.str_) + 1])
+      : str_(new char[strlen(obj.str_.get()) + 1])
     {
-        strcpy(str_, obj.str_);
+        strcpy(str_.get(), obj.str_.get());
     }
 
     ~MyString()
-    {
-        delete[] str_;
-    }
+    {}
 
     // Assignment Related Operators.
     MyString& operator= (const MyString& rhs)
     {
-        char* new_str = new char[strlen(rhs.str_) + 1];
-        strcpy(new_str, rhs.str_);
-        delete[] str_;
+        char* new_str = new char[strlen(rhs.str_.get()) + 1];
+        strcpy(new_str, rhs.str_.get());
         str_ = new_str;
         return *this;
     }
 
     MyString& operator+= (const MyString& rhs)
     {
-        std::size_t len = strlen(str_);
-        char* new_str = new char[len + strlen(rhs.str_) + 1];
-        strcpy(new_str, str_);
-        strcpy(new_str + len, rhs.str_);
-        delete[] str_;
+        std::size_t len = strlen(str_.get());
+        char* new_str = new char[len + strlen(rhs.str_.get()) + 1];
+        strcpy(new_str, str_.get());
+        strcpy(new_str + len, rhs.str_.get());
         str_ = new_str;
         return *this;
     }
@@ -74,39 +111,39 @@ class MyString
     // Binary Arithmetic Related Operators.
     const MyString operator+ (const MyString& rhs)
     {
-        return MyString(str_, rhs.str_);
+        return MyString(str_.get(), rhs.str_.get());
     }
 
     friend const MyString operator+ (const MyString& obj, std::string str)
     {
-        return MyString(obj.str_, str.c_str());
+        return MyString(obj.str_.get(), str.c_str());
     }
 
     friend const MyString operator+ (std::string str, const MyString& obj)
     {
-        return MyString(str.c_str(), obj.str_);
+        return MyString(str.c_str(), obj.str_.get());
     }
 
     // Comparison Related Operators.
     bool operator< (const MyString& rhs)
     {
-        return (strcmp(str_, rhs.str_) < 0)? true : false;
+        return (strcmp(str_.get(), rhs.str_.get()) < 0)? true : false;
     }
 
     bool operator== (const MyString& rhs)
     {
-        return (strcmp(str_, rhs.str_) == 0)? true : false;
+        return (strcmp(str_.get(), rhs.str_.get()) == 0)? true : false;
     }
 
     bool operator> (const MyString& rhs)
     {
-        return (strcmp(str_, rhs.str_) > 0)? true : false;
+        return (strcmp(str_.get(), rhs.str_.get()) > 0)? true : false;
     }
 
     // I/O stream Related Operators.
     friend std::ostream& operator<< (std::ostream& os, const MyString& obj)
     {
-        os << obj.str_;
+        os << obj.str_.get();
         return os;
     }
 
@@ -118,10 +155,9 @@ class MyString
 
     const MyString operator() (int idx, std::size_t len)
     {
-        return MyString(str_ + idx, len);
+        return MyString(str_.get() + idx, len);
     }
 };
-
 // End
 
 int CompareString(const void* e1, const void* e2)
