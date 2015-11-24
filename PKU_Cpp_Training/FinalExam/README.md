@@ -14,3 +14,10 @@
 + The problem is to implement:
   + The `for_each()` template function.  
   + The template function object for container order comparison.  
+
+#### Part9
++ The problem is to implement:
+  + The inheritance class pair.  
+  + The comparator object for `std::set`.  
+  + The helper object for `for_each` template function.  
+
