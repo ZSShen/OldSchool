@@ -29,7 +29,7 @@ class A
         ++count;
     }
 
-    ~A()
+    virtual ~A() // Please be aware of virtual destructor.
     {
         --count;
         std::cout << "A::destructor" << std::endl;
@@ -52,6 +52,7 @@ class B : public A
         std::cout << "B::destructor" << std::endl;
     }
 };
+// End
 
 
 int A::count = 0;
