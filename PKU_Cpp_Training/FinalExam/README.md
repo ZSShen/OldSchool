@@ -15,6 +15,10 @@
   + The `for_each()` template function.  
   + The template function object for container order comparison.  
 
+#### Part8
++ The problem is to practice bitwise operatros. But it is also worth to practice:  
+  + Encapsulate the operations into a template class.  
+
 #### Part9
 + The problem is to implement:
   + The inheritance class pair.  
