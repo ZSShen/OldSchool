@@ -11,7 +11,7 @@ class MyInt {
 
     int ReturnVal() { return nVal; }
 
-    // Pad the designated overloaded subtraction operator.
+    // Overload the designated subtraction operator.
     MyInt& operator-(int val)
     {
         this->nVal -= val;

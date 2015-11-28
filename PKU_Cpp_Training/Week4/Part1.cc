@@ -13,7 +13,7 @@ class Complex {
     void Print()
     { cout << r << "+" << i << "i" << endl; }
 
-    // Pad the designated overloaded assignment operator
+    // Overload the designated assignment operator.
     #define SIZE_BLAH_BUF  (0x100)
 
     Complex& operator=(const string& str)
