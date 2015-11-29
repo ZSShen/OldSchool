@@ -5,7 +5,8 @@
 using namespace std;
 
 
-// Pad the designated "MyString" class.
+// Code the designated "MyString" class. Just simply inherit the functionality
+// from STL string class.
 class MyString : public string
 {
   public:
@@ -19,6 +20,9 @@ class MyString : public string
 
     MyString(const string& str)
       : string(str)
+    {}
+
+    ~MyString()
     {}
 
     string operator()(int bgn, int length)

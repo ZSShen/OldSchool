@@ -34,6 +34,40 @@ const char* LABEL_WARRIOR[COUNT_TYPE_WARRIOR] = {
 };
 
 
+template <typename T>
+class ArrayPtr
+{
+  private:
+    std::size_t size_;
+    T* array_;
+
+  public:
+    ArrayPtr(T* array, std::size_t size)
+      : size_(size),
+        array_(array)
+    {}
+
+    ArrayPtr& operator= (const ArrayPtr& rhs)
+    {
+        T* new_array = new T[rhs.size_];
+        memcpy(new_array, rhs.array_);
+        delete[] this->array_;
+        this->array_ = new_array;
+        this->size_ = rhs.size_;
+    }
+
+    T* get()
+    {
+        return array_;
+    }
+
+    ~ArrayPtr()
+    {
+        delete[] array_;
+    }
+};
+
+
 class Warrior
 {
   protected:
@@ -44,6 +78,9 @@ class Warrior
       : m_id(id),
         m_life(life),
         m_power(0)
+    {}
+
+    virtual ~Warrior()
     {}
 
     virtual void printInfo() = 0;
@@ -62,6 +99,9 @@ class Dragon : public Warrior
         m_id_weap = id % 3;
         m_morale = double(life_hq) / double(life_warr);
     }
+
+    ~Dragon()
+    {}
 
     void printInfo()
     {
@@ -92,6 +132,9 @@ class Ninja : public Warrior
         m_id_weapfst = id % 3;
         m_id_weapsnd = (id + 1) % 3;
     }
+
+    ~Ninja()
+    {}
 
     void printInfo()
     {
@@ -132,6 +175,9 @@ class Iceman : public Warrior
         m_id_weap = id % 3;
     }
 
+    ~Iceman()
+    {}
+
     void printInfo()
     {
         cout << "It has a ";
@@ -160,6 +206,9 @@ class Lion : public Warrior
         m_loyalty = life_hq;
     }
 
+    ~Lion()
+    {}
+
     void printInfo()
     {
         cout << "It's loyalty is " << m_loyalty << endl;
@@ -171,6 +220,9 @@ class Wolf : public Warrior
   public:
     Wolf(int id, int life_warr, int life_hq)
       : Warrior(id, life_warr)
+    {}
+
+    ~Wolf()
     {}
 
     void printInfo()
@@ -203,7 +255,7 @@ class HeadQuarter
     int m_warr_count, m_gen_idx, m_life, m_tick;
     int m_num_warrior[COUNT_TYPE_WARRIOR];
 
-    char* m_label;
+    ArrayPtr<char> m_label;
     char m_gen_seq[COUNT_TYPE_WARRIOR];
 
     vector<Warrior*> m_vec_warr;
@@ -213,10 +265,11 @@ class HeadQuarter
       : m_warr_count(0),
         m_gen_idx(-1),
         m_life(life),
-        m_tick(0)
+        m_tick(0),
+        m_label(new char [strlen(label) + 1], strlen(label) + 1),
+        m_vec_warr()
     {
-        m_label = new char[strlen(label) + 1];
-        strcpy(m_label, label);
+        strcpy(m_label.get(), label);
 
         memcpy(m_gen_seq, gen_seq, COUNT_TYPE_WARRIOR * sizeof(char));
 
@@ -225,8 +278,6 @@ class HeadQuarter
 
     ~HeadQuarter()
     {
-        delete[] m_label;
-
         for (vector<Warrior*>::iterator iter = m_vec_warr.begin() ;
              iter != m_vec_warr.end() ; ++iter) {
             Warrior *p_warr = *iter;
@@ -263,10 +314,10 @@ class HeadQuarter
             const char* label_warr = LABEL_WARRIOR[type_warr];
             int count_warr = ++m_num_warrior[type_warr];
 
-            cout << setfill('0') << setw(3) << m_tick << ' ' << m_label << ' ' \
+            cout << setfill('0') << setw(3) << m_tick << ' ' << m_label.get() << ' ' \
             << label_warr << ' ' << m_warr_count << " born with strength " \
             << life_warr << ',' << count_warr << ' ' << label_warr << " in " \
-            << m_label << " headquarter" << endl;
+            << m_label.get() << " headquarter" << endl;
 
             Warrior *p_warr;
             switch (type_warr) {
@@ -288,7 +339,7 @@ class HeadQuarter
             p_warr->printInfo();
             m_vec_warr.push_back(p_warr);
         } else
-            cout << setfill('0') << setw(3) << m_tick << ' ' << m_label \
+            cout << setfill('0') << setw(3) << m_tick << ' ' << m_label.get() \
             << " headquarter stops making warriors" << endl;
 
         ++m_tick;
