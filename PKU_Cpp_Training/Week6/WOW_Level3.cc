@@ -10,8 +10,6 @@ using namespace std;
 
 
 const int SIZE_BLAH_BUF = 512;
-const char* TROOP_RED = "red";
-const char* TROOP_BLUE = "blue";
 
 enum TYPE_WEAPON
 {
@@ -127,32 +125,35 @@ class Warrior
   protected:
     bool walked_;
     int id_, life_, power_, step_;
-    const char* troop_;
     Weapon *p_sword_, *p_bomb_, *p_arrow_;
-    string race_;
+    const string& troop_;
+    const string& race_;
 
   public:
-    Warrior(const char* troop, const string& race, int id, int life, int power)
+    static const string RACE_DRAGON;
+    static const string RACE_NINJA;
+    static const string RACE_ICEMAN;
+    static const string RACE_LION;
+    static const string RACE_WOLF;
+
+    Warrior(const string& troop, const string& race, int id, int life, int power)
       : walked_(false),
         id_(id),
         life_(life),
         power_(power),
         step_(0),
-        troop_(troop),
         p_sword_(NULL),
         p_bomb_(NULL),
         p_arrow_(NULL),
+        troop_(troop),
         race_(race)
     {}
 
     virtual ~Warrior()
     {
-        if (p_sword_)
-            delete p_sword_;
-        if (p_bomb_)
-            delete p_bomb_;
-        if (p_arrow_)
-            delete p_arrow_;
+        delete p_sword_;
+        delete p_bomb_;
+        delete p_arrow_;
     }
 
     virtual void Attack(Warrior*) = 0;
@@ -200,7 +201,7 @@ class Warrior
         return step_;
     }
 
-    const char* GetTroop()
+    const string& GetTroop()
     {
         return troop_;
     }
@@ -282,6 +283,13 @@ class Warrior
     }
 };
 
+const string Warrior::RACE_DRAGON = "dragon";
+const string Warrior::RACE_NINJA = "ninja";
+const string Warrior::RACE_ICEMAN = "iceman";
+const string Warrior::RACE_LION = "lion";
+const string Warrior::RACE_WOLF = "wolf";
+
+
 int Warrior::GetAttackPower()
 {
     int atk_point = power_;
@@ -317,9 +325,9 @@ class Dragon : public Warrior
     double morale_;
 
   public:
-    Dragon(const char* troop, int id, int life, int power_me, double morale,
+    Dragon(const string& troop, int id, int life, int power_me, double morale,
            int power_arrow)
-      : Warrior(troop, "dragon", id, life, power_me),
+      : Warrior(troop, RACE_DRAGON, id, life, power_me),
         morale_(morale)
     {
         // Take the weapon.
@@ -374,8 +382,8 @@ class Dragon : public Warrior
 class Ninja : public Warrior
 {
   public:
-    Ninja(const char* troop, int id, int life, int power_me, int power_arrow)
-      : Warrior(troop, "ninja", id, life, power_me)
+    Ninja(const string& troop, int id, int life, int power_me, int power_arrow)
+      : Warrior(troop, RACE_NINJA, id, life, power_me)
     {
         // Take the first weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
@@ -426,8 +434,8 @@ class Ninja : public Warrior
 class Iceman : public Warrior
 {
   public:
-    Iceman(const char* troop, int id, int life, int power_me, int power_arrow)
-      : Warrior(troop, "iceman", id, life, power_me)
+    Iceman(const string& troop, int id, int life, int power_me, int power_arrow)
+      : Warrior(troop, RACE_ICEMAN, id, life, power_me)
     {
         // Take the weapon.
         switch (id % TOTAL_TYPE_WEAPON) {
@@ -485,8 +493,8 @@ class Lion : public Warrior
     int loyalty_, degrade_, legacy_;
 
   public:
-    Lion(const char* troop, int id, int life, int power, int loyalty, int degrade)
-      : Warrior(troop, "lion", id, life, power),
+    Lion(const string& troop, int id, int life, int power, int loyalty, int degrade)
+      : Warrior(troop, RACE_LION, id, life, power),
         loyalty_(loyalty),
         degrade_(degrade),
         legacy_(life)
@@ -549,8 +557,8 @@ class Lion : public Warrior
 class Wolf : public Warrior
 {
   public:
-    Wolf(const char* troop, int id, int life, int power)
-      : Warrior(troop, "wolf", id, life, power)
+    Wolf(const string& troop, int id, int life, int power)
+      : Warrior(troop, RACE_WOLF, id, life, power)
     {}
 
     void Attack(Warrior* p_enemy)
@@ -752,6 +760,9 @@ class HeadQuarter
     const Config& config_;
 
   public:
+    static const string TROOP_RED;
+    static const string TROOP_BLUE;
+
     HeadQuarter(int life, const Config& config)
       : life_(life),
         turn_(1),
@@ -761,7 +772,7 @@ class HeadQuarter
     virtual ~HeadQuarter()
     {}
 
-    virtual Warrior* ProduceWarrior(const char*) = 0;
+    virtual Warrior* ProduceWarrior() = 0;
 
     void RecycleLifePoint(int life)
     {
@@ -779,6 +790,10 @@ class HeadQuarter
     }
 };
 
+const string HeadQuarter::TROOP_RED = "red";
+const string HeadQuarter::TROOP_BLUE = "blue";
+
+
 class HeadQuarterRed : public HeadQuarter
 {
   public:
@@ -786,7 +801,7 @@ class HeadQuarterRed : public HeadQuarter
       : HeadQuarter(life, config)
     {}
 
-    Warrior* ProduceWarrior(const char*);
+    Warrior* ProduceWarrior();
 };
 
 class HeadQuarterBlue : public HeadQuarter
@@ -796,10 +811,10 @@ class HeadQuarterBlue : public HeadQuarter
       : HeadQuarter(life, config)
     {}
 
-    Warrior* ProduceWarrior(const char*);
+    Warrior* ProduceWarrior();
 };
 
-Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
+Warrior* HeadQuarterRed::ProduceWarrior()
 {
     Warrior *p_warr = NULL;
     switch (turn_ % TOTAL_TYPE_WARRIOR) {
@@ -807,7 +822,7 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
         if (life_ < config_.life_dragon)
             break;
         life_ -= config_.life_dragon;
-        p_warr = new Dragon(troop, turn_, config_.life_dragon, config_.power_dragon,
+        p_warr = new Dragon(TROOP_RED, turn_, config_.life_dragon, config_.power_dragon,
                             static_cast<double>(life_) / config_.life_dragon,
                             config_.power_arrow);
         ++turn_;
@@ -816,7 +831,7 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
         if (life_ < config_.life_iceman)
             break;
         life_ -= config_.life_iceman;
-        p_warr = new Iceman(troop, turn_, config_.life_iceman, config_.power_iceman,
+        p_warr = new Iceman(TROOP_RED, turn_, config_.life_iceman, config_.power_iceman,
                             config_.power_arrow);
         ++turn_;
         break;
@@ -824,7 +839,7 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
         if (life_ < config_.life_lion)
             break;
         life_ -= config_.life_lion;
-        p_warr = new Lion(troop, turn_, config_.life_lion, config_.power_lion,
+        p_warr = new Lion(TROOP_RED, turn_, config_.life_lion, config_.power_lion,
                           life_, config_.loyalty);
         ++turn_;
         break;
@@ -832,14 +847,14 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
         if (life_ < config_.life_wolf)
             break;
         life_ -= config_.life_wolf;
-        p_warr = new Wolf(troop, turn_, config_.life_wolf, config_.power_wolf);
+        p_warr = new Wolf(TROOP_RED, turn_, config_.life_wolf, config_.power_wolf);
         ++turn_;
         break;
       case 4:
         if (life_ < config_.life_ninja)
             break;
         life_ -= config_.life_ninja;
-        p_warr = new Ninja(troop, turn_, config_.life_ninja, config_.power_ninja,
+        p_warr = new Ninja(TROOP_RED, turn_, config_.life_ninja, config_.power_ninja,
                            config_.power_arrow);
         ++turn_;
     }
@@ -847,7 +862,7 @@ Warrior* HeadQuarterRed::ProduceWarrior(const char* troop)
     return p_warr;
 }
 
-Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
+Warrior* HeadQuarterBlue::ProduceWarrior()
 {
     Warrior *p_warr = NULL;
     switch (turn_ % TOTAL_TYPE_WARRIOR) {
@@ -855,14 +870,14 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
         if (life_ < config_.life_wolf)
             break;
         life_ -= config_.life_wolf;
-        p_warr = new Wolf(troop, turn_, config_.life_wolf, config_.power_wolf);
+        p_warr = new Wolf(TROOP_BLUE, turn_, config_.life_wolf, config_.power_wolf);
         ++turn_;
         break;
       case 1:
         if (life_ < config_.life_lion)
             break;
         life_ -= config_.life_lion;
-        p_warr = new Lion(troop, turn_, config_.life_lion, config_.power_lion,
+        p_warr = new Lion(TROOP_BLUE, turn_, config_.life_lion, config_.power_lion,
                           life_, config_.loyalty);
         ++turn_;
         break;
@@ -870,7 +885,7 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
         if (life_ < config_.life_dragon)
             break;
         life_ -= config_.life_dragon;
-        p_warr = new Dragon(troop, turn_, config_.life_dragon, config_.power_dragon,
+        p_warr = new Dragon(TROOP_BLUE, turn_, config_.life_dragon, config_.power_dragon,
                             static_cast<double>(life_) / config_.life_dragon,
                             config_.power_arrow);
         ++turn_;
@@ -879,7 +894,7 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
         if (life_ < config_.life_ninja)
             break;
         life_ -= config_.life_ninja;
-        p_warr = new Ninja(troop, turn_, config_.life_ninja, config_.power_ninja,
+        p_warr = new Ninja(TROOP_BLUE, turn_, config_.life_ninja, config_.power_ninja,
                            config_.power_arrow);
         ++turn_;
         break;
@@ -887,7 +902,7 @@ Warrior* HeadQuarterBlue::ProduceWarrior(const char* troop)
         if (life_ < config_.life_iceman)
             break;
         life_ -= config_.life_iceman;
-        p_warr = new Iceman(troop, turn_, config_.life_iceman, config_.power_iceman,
+        p_warr = new Iceman(TROOP_BLUE, turn_, config_.life_iceman, config_.power_iceman,
                             config_.power_arrow);
         ++turn_;
     }
@@ -915,8 +930,8 @@ class GameMaster
 
     void MarchWarrior(int);
     void MarchWarriorLogToCity(int, Warrior*, int);
-    void MarchWarriorLogToHQ(int, Warrior*, const char*);
-    void MarchWarriorLogTakeHQ(int, const char*);
+    void MarchWarriorLogToHQ(int, Warrior*, const string&);
+    void MarchWarriorLogTakeHQ(int, const string&);
 
     void ProduceLifePoint();
     void GatherLifePoint(int);
@@ -933,7 +948,7 @@ class GameMaster
     void PassiveFightLog(int, int, Warrior*, Warrior*);
     void DieLog(int, int, Warrior*);
     void YellLog(int, int, Warrior*);
-    void RaiseFlagLog(int, int, const char*);
+    void RaiseFlagLog(int, int, const string&);
 
     void EndRound(int);
     void ReportWarriorLog(int, Warrior*);
@@ -1026,13 +1041,13 @@ void GameMaster::Run()
 
 void GameMaster::ProduceWarrior(int hour)
 {
-    Warrior* p_warr = p_redhq_->ProduceWarrior(TROOP_RED);
+    Warrior* p_warr = p_redhq_->ProduceWarrior();
     if (p_warr) {
         vec_place_[POS_REDHQ].SetRedWarrior(p_warr);
         ProduceWarriorLog(hour, p_warr);
     }
 
-    p_warr = p_bluehq_->ProduceWarrior(TROOP_BLUE);
+    p_warr = p_bluehq_->ProduceWarrior();
     if (p_warr) {
         vec_place_[POS_BLUEHQ].SetBlueWarrior(p_warr);
         ProduceWarriorLog(hour, p_warr);
@@ -1042,7 +1057,7 @@ void GameMaster::ProduceWarrior(int hour)
 void GameMaster::ProduceWarriorLog(int hour, Warrior* p_warr)
 {
     char msg[SIZE_BLAH_BUF];
-    int ofst = sprintf(msg, "%03d:00 %s %s %d born\n", hour, p_warr->GetTroop(),
+    int ofst = sprintf(msg, "%03d:00 %s %s %d born\n", hour, p_warr->GetTroop().c_str(),
                        p_warr->GetRace().c_str(), p_warr->GetId());
 
     if (typeid(*p_warr) == typeid(Lion))
@@ -1108,7 +1123,7 @@ void GameMaster::FleeLion(int hour)
 void GameMaster::FleeLionLog(int hour, Lion* p_lion)
 {
     char msg[SIZE_BLAH_BUF];
-    sprintf(msg, "%03d:05 %s lion %d ran away\n", hour, p_lion->GetTroop(),
+    sprintf(msg, "%03d:05 %s lion %d ran away\n", hour, p_lion->GetTroop().c_str(),
             p_lion->GetId());
     cout << msg;
 }
@@ -1121,9 +1136,9 @@ void GameMaster::MarchWarrior(int hour)
         p_warr->WalkAhead();
         vec_place_[POS_REDHQ].SetBlueWarrior(p_warr);
         vec_place_[POS_REDHQ + 1].PopBlueWarrior();
-        MarchWarriorLogToHQ(hour, p_warr, TROOP_RED);
+        MarchWarriorLogToHQ(hour, p_warr, HeadQuarter::TROOP_RED);
         if (vec_place_[POS_REDHQ].CountBlueWarrior() == 2)
-            MarchWarriorLogTakeHQ(hour, TROOP_RED);
+            MarchWarriorLogTakeHQ(hour, HeadQuarter::TROOP_RED);
     }
 
     // Handle the warriors ready to march for cities from #1 to #N.
@@ -1151,9 +1166,9 @@ void GameMaster::MarchWarrior(int hour)
         p_warr->WalkAhead();
         vec_place_[POS_BLUEHQ].SetRedWarrior(p_warr);
         vec_place_[POS_BLUEHQ - 1].PopRedWarrior();
-        MarchWarriorLogToHQ(hour, p_warr, TROOP_BLUE);
+        MarchWarriorLogToHQ(hour, p_warr, HeadQuarter::TROOP_BLUE);
         if (vec_place_[POS_BLUEHQ].CountRedWarrior() == 2)
-            MarchWarriorLogTakeHQ(hour, TROOP_BLUE);
+            MarchWarriorLogTakeHQ(hour, HeadQuarter::TROOP_BLUE);
     }
 
     for (int i = 1 ; i < POS_BLUEHQ ; ++i) {
@@ -1170,24 +1185,24 @@ void GameMaster::MarchWarriorLogToCity(int hour, Warrior* p_warr, int idx)
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:10 %s %s %d marched to city %d with %d elements and force %d\n",
-            hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
+            hour, p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(),
             idx, p_warr->GetLifePoint(), p_warr->GetAttackPowerNoWeapon());
     cout << msg;
 }
 
-void GameMaster::MarchWarriorLogToHQ(int hour, Warrior* p_warr, const char* troop_enemy)
+void GameMaster::MarchWarriorLogToHQ(int hour, Warrior* p_warr, const string& troop_enemy)
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:10 %s %s %d reached %s headquarter with %d elements and force %d\n",
-            hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
-            troop_enemy, p_warr->GetLifePoint(), p_warr->GetAttackPower());
+            hour, p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(),
+            troop_enemy.c_str(), p_warr->GetLifePoint(), p_warr->GetAttackPower());
     cout << msg;
 }
 
-void GameMaster::MarchWarriorLogTakeHQ(int hour, const char* troop)
+void GameMaster::MarchWarriorLogTakeHQ(int hour, const string& troop)
 {
     char msg[SIZE_BLAH_BUF];
-    sprintf(msg, "%03d:10 %s headquarter was taken\n", hour, troop);
+    sprintf(msg, "%03d:10 %s headquarter was taken\n", hour, troop.c_str());
     cout << msg;
 }
 
@@ -1221,7 +1236,7 @@ void GameMaster::GatherLifePointLog(int hour, int minute, Warrior* p_warr, int l
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:%d %s %s %d earned %d elements for his headquarter\n", hour,
-        minute, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(), life);
+        minute, p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(), life);
     cout << msg;
 }
 
@@ -1270,10 +1285,10 @@ void GameMaster::ShotEnemy(int hour)
 void GameMaster::ShotEnemyLog(int hour, Warrior* p_warr, Warrior* p_enemy)
 {
     char msg[SIZE_BLAH_BUF];
-    int ofst = sprintf(msg, "%03d:35 %s %s %d shot\n", hour, p_warr->GetTroop(),
+    int ofst = sprintf(msg, "%03d:35 %s %s %d shot\n", hour, p_warr->GetTroop().c_str(),
                        p_warr->GetRace().c_str(), p_warr->GetId());
     if (p_enemy->GetLifePoint() == 0)
-    sprintf(msg + ofst - 1, " and killed %s %s %d\n", p_enemy->GetTroop(),
+    sprintf(msg + ofst - 1, " and killed %s %s %d\n", p_enemy->GetTroop().c_str(),
             p_enemy->GetRace().c_str(), p_enemy->GetId());
     cout << msg;
 }
@@ -1330,8 +1345,8 @@ void GameMaster::ExplodeEnemyLog(int hour, Warrior* p_warr, Warrior* p_enemy)
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:38 %s %s %d used a bomb and killed %s %s %d\n", hour,
-            p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
-            p_enemy->GetTroop(), p_enemy->GetRace().c_str(), p_enemy->GetId());
+            p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(),
+            p_enemy->GetTroop().c_str(), p_enemy->GetRace().c_str(), p_enemy->GetId());
     cout << msg;
 }
 
@@ -1427,9 +1442,9 @@ void GameMaster::Fight(int hour)
         char flag_after = vec_place_[i].GetFlag();
         if (flag_after != flag) {
             if (flag_after == Place::RED_WIN)
-                RaiseFlagLog(hour, i, TROOP_RED);
+                RaiseFlagLog(hour, i, HeadQuarter::TROOP_RED);
             else if (flag_after == Place::BLUE_WIN)
-                RaiseFlagLog(hour, i, TROOP_BLUE);
+                RaiseFlagLog(hour, i, HeadQuarter::TROOP_BLUE);
         }
     }
 
@@ -1464,8 +1479,8 @@ void GameMaster::ActiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p_
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:40 %s %s %d attacked %s %s %d in city %d with %d elements"
-            " and force %d\n", hour, p_warr->GetTroop(), p_warr->GetRace().c_str(),
-            p_warr->GetId(), p_enemy->GetTroop(), p_enemy->GetRace().c_str(),
+            " and force %d\n", hour, p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(),
+            p_warr->GetId(), p_enemy->GetTroop().c_str(), p_enemy->GetRace().c_str(),
             p_enemy->GetId(), city, p_warr->GetLifePoint(),
             p_warr->GetAttackPowerNoWeapon());
     cout << msg;
@@ -1478,8 +1493,8 @@ void GameMaster::PassiveFightLog(int hour, int city, Warrior* p_warr, Warrior* p
 
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:40 %s %s %d fought back against %s %s %d in city %d\n",
-            hour, p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(),
-            p_enemy->GetTroop(), p_enemy->GetRace().c_str(), p_enemy->GetId(), city);
+            hour, p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(),
+            p_enemy->GetTroop().c_str(), p_enemy->GetRace().c_str(), p_enemy->GetId(), city);
     cout << msg;
 }
 
@@ -1487,22 +1502,22 @@ void GameMaster::DieLog(int hour, int city, Warrior* p_warr)
 {
     char msg[SIZE_BLAH_BUF];
     sprintf(msg, "%03d:40 %s %s %d was killed in city %d\n", hour,
-            p_warr->GetTroop(), p_warr->GetRace().c_str(), p_warr->GetId(), city);
+            p_warr->GetTroop().c_str(), p_warr->GetRace().c_str(), p_warr->GetId(), city);
     cout << msg;
 }
 
 void GameMaster::YellLog(int hour, int city, Warrior* p_warr)
 {
     char msg[SIZE_BLAH_BUF];
-    sprintf(msg, "%03d:40 %s %s %d yelled in city %d\n", hour, p_warr->GetTroop(),
+    sprintf(msg, "%03d:40 %s %s %d yelled in city %d\n", hour, p_warr->GetTroop().c_str(),
             p_warr->GetRace().c_str(), p_warr->GetId(), city);
     cout << msg;
 }
 
-void GameMaster::RaiseFlagLog(int hour, int city, const char* troop)
+void GameMaster::RaiseFlagLog(int hour, int city, const string& troop)
 {
     char msg[SIZE_BLAH_BUF];
-    sprintf(msg, "%03d:40 %s flag raised in city %d\n", hour, troop, city);
+    sprintf(msg, "%03d:40 %s flag raised in city %d\n", hour, troop.c_str(), city);
     cout << msg;
 }
 
@@ -1547,7 +1562,7 @@ void GameMaster::EndRound(int hour)
 void GameMaster::ReportWarriorLog(int hour, Warrior* p_warr)
 {
     char msg[SIZE_BLAH_BUF];
-    int ofst = sprintf(msg, "%03d:55 %s %s %d has ", hour, p_warr->GetTroop(),
+    int ofst = sprintf(msg, "%03d:55 %s %s %d has ", hour, p_warr->GetTroop().c_str(),
                        p_warr->GetRace().c_str(), p_warr->GetId());
 
     bool has_weapon = false;
