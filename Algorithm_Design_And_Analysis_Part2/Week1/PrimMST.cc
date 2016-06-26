@@ -50,8 +50,10 @@ struct EdgeComparator
 
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    if (argc != 2) {
         std::cerr << "Please specify the input file." << std::endl;
+        return -1;
+    }
 
     // Construct the graph and priority queue.
     std::ifstream stream(argv[1]);

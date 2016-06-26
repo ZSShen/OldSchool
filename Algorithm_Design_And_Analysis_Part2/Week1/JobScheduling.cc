@@ -40,8 +40,10 @@ bool SortByRatio(const Job& lhs, const Job& rhs)
 
 int main(int argc, char** argv)
 {
-    if (argc != 3)
+    if (argc != 3) {
         std::cerr << "Please specify the heuristics and the input file." << std::endl;
+        return -1;
+    }
 
     int heur = atoi(argv[1]);
     char* input = argv[2];
