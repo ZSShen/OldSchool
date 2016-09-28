@@ -1,9 +1,10 @@
 #include <iostream>
 #include <cstring>
+#include <vector>
 
 using namespace std;
 
-
+/*
 // Implement the smart pointer for class "Array2". The underlying resource should
 // be duplicated if the assignment operator is called.
 template <typename T>
@@ -101,6 +102,82 @@ class Array2
         this->row_ = rhs.row_;
         this->col_ = rhs.col_;
     }
+};
+*/
+
+// An alternative way to implement Array2.
+class ColumnIndexer
+{
+  public:
+    ColumnIndexer(vector<int>& line)
+      : bound_(line.size()),
+        line_(line)
+    {}
+
+    int& operator[] (int col)
+    {
+        if (col >= bound_)
+            throw "Column index out of bound.";
+        return line_[col];
+    }
+
+  private:
+    int bound_;
+    vector<int>& line_;
+};
+
+class Array2
+{
+  public:
+    // Default constructor
+    Array2(int row = 0, int col = 0)
+      : row_(row),
+        col_(col),
+        matrix_(row)
+    {
+        for (int r = 0 ; r < row ; ++r)
+            matrix_[r].resize(col);
+    }
+
+    ~Array2()
+    {}
+
+    // Overloaded copy assignment "=" operator
+    Array2& operator= (const Array2& that)
+    {
+        row_ = that.row_;
+        col_ = that.col_;
+
+        matrix_.resize(row_);
+        for (int r = 0 ; r < row_ ; ++r) {
+            matrix_[r].resize(col_);
+            for (int c = 0 ; c < col_ ; ++c)
+                matrix_[r][c] = that.matrix_[r][c];
+        }
+    }
+
+    // Overloaded subscripting "[]" operator
+    ColumnIndexer operator[] (int row)
+    {
+        if (row >= row_)
+            throw "Row index out of bound.";
+        return ColumnIndexer(matrix_[row]);
+    }
+
+    // Overloaded function call "()" operator
+    int& operator() (int row, int col)
+    {
+        if (row >= row_)
+            throw "Row index out of bound.";
+        if (col >= col_)
+            throw "Column index out of bound.";
+        return matrix_[row][col];
+    }
+
+  private:
+    int row_;
+    int col_;
+    vector<vector<int>> matrix_;
 };
 
 
